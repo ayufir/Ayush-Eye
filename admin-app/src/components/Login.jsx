@@ -14,7 +14,7 @@ export default function Login() {
 
     try {
       // Note: In admin-app, we use /api proxy
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      const response = await fetch('https://ayush-eye-1.onrender.com/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

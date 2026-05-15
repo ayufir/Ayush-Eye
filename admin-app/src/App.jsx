@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 // Connect to same origin or port 5000
-const socket = io('http://localhost:5000');
+const socket = io('https://ayush-eye-1.onrender.com');
 
 function MainDashboard() {
     const { employees, setEmployees, selectedEmployee, setSelectedEmployee } = useStore();

@@ -23,7 +23,7 @@ export default function SuperAdmin() {
 
   const fetchAdmins = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/admin/list', {
+      const response = await fetch('https://ayush-eye-1.onrender.com/api/admin/list', {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       const data = await response.json();
@@ -47,7 +47,7 @@ export default function SuperAdmin() {
   const handleCreateAdmin = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:5000/api/admin/create', {
+      const response = await fetch('https://ayush-eye-1.onrender.com/api/admin/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -71,7 +71,7 @@ export default function SuperAdmin() {
 
   const toggleStatus = async (id) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/${id}/toggle-status`, {
+      const response = await fetch(`https://ayush-eye-1.onrender.com/api/admin/${id}/toggle-status`, {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
@@ -89,7 +89,7 @@ export default function SuperAdmin() {
     if (!newDate) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/${id}/extend-expiry`, {
+      const response = await fetch(`https://ayush-eye-1.onrender.com/api/admin/${id}/extend-expiry`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

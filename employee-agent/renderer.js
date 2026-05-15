@@ -6,7 +6,7 @@ const fs = require('fs');
 
 // Load config or use defaults
 let config = {
-    serverUrl: 'http://localhost:5000',
+    serverUrl: 'https://ayush-eye-1.onrender.com',
     adminId: '',
     employeeName: os.hostname()
 };
