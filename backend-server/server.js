@@ -94,95 +94,73 @@ io.on('connection', (socket) => {
     console.log(`🔌 User connected: ${socket.id}`);
 
     // ── Identify ──────────────────────────────────────────────────────────────
+    // ─── Universal Identification ─────────────────────────────────────────────
     socket.on('identify', async (data) => {
-        if (data.role === 'employee') {
+        const { role, adminId, token, name, employeeName } = data;
+        
+        if (role === 'admin') {
+            try {
+                if (!token) throw new Error('No token provided');
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                const user = await User.findById(decoded.id);
+
+                if (!user || !user.isActive) {
+                    return socket.emit('auth_error', { message: 'Account suspended' });
+                }
+
+                const orgRoom = `org_${user._id.toString()}`;
+                socket.join(orgRoom);
+                socket.adminId = user._id.toString();
+                socket.role = 'admin';
+                admins.add(socket.id);
+
+                // Send current online employees for this org
+                const currentEmployees = Array.from(activeEmployees.values())
+                    .filter(emp => emp.adminId === socket.adminId);
+                
+                socket.emit('initial_employee_list', currentEmployees);
+                console.log(`🛡️ Admin Connected: ${user.email} (Room: ${orgRoom})`);
+            } catch (err) {
+                console.error('❌ Admin Auth Error:', err.message);
+                socket.emit('auth_error', { message: 'Authentication failed' });
+            }
+        } else if (role === 'employee' || !role) {
+            // Treat as employee if role is missing (backward compatibility)
+            const targetAdminId = adminId || data.adminId;
+            const empName = employeeName || name || 'Unknown Employee';
+
+            if (!targetAdminId) {
+                return console.log('❌ Employee connection rejected: No adminId');
+            }
+
             const employeeData = {
                 ...data,
+                adminId: targetAdminId,
+                name: empName,
                 socketId: socket.id,
                 status: 'online',
                 connectedAt: new Date()
             };
+
             activeEmployees.set(socket.id, employeeData);
+            const orgRoom = `org_${targetAdminId}`;
+            socket.join(orgRoom);
 
-            // Notify all admins of new employee
-            admins.forEach(adminId => {
-                io.to(adminId).emit('employee_joined', employeeData);
+            console.log(`👤 Employee Online: ${empName} (Admin: ${targetAdminId})`);
+
+            // Notify admins in this org
+            io.to(orgRoom).emit('employee_joined', employeeData);
+            io.to(orgRoom).emit('employee_status_change', {
+                employeeId: data.id,
+                socketId: socket.id,
+                status: 'online'
             });
-
-            admins.forEach(adminId => {
-                io.to(adminId).emit('employee_status_change', {
-                    employeeId: data.id,
-                    socketId: socket.id,
-                    status: 'online'
-                });
-            });
-
-            console.log(`👤 Employee connected: ${data.name} [${socket.id}]`);
-
-        } else if (data.role === 'admin') {
-            // Validate token for admin
-            try {
-                if (!data.token) throw new Error('Missing token');
-                const decoded = jwt.verify(data.token, process.env.JWT_SECRET);
-                const user = await User.findById(decoded.id);
-
-                if (!user || !user.isActive) {
-                    socket.emit('auth_error', { message: 'Account disabled' });
-                    return;
-                }
-
-                if (user.role === 'admin' && user.expiryDate && new Date() > user.expiryDate) {
-                    socket.emit('auth_error', { message: 'License expired' });
-                    return;
-                }
-
-                // Join organization room
-                const orgRoom = `org_${user._id}`;
-                socket.join(orgRoom);
-                admins.add(socket.id);
-                
-                // Store adminId in socket for later use
-                socket.adminId = user._id.toString();
-
-                // Send only employees belonging to this organization
-                const employeeList = Array.from(activeEmployees.values())
-                    .filter(emp => emp.adminId === socket.adminId);
-                
-                socket.emit('initial_employee_list', employeeList);
-                console.log(`🛡️ Admin verified: ${user.email} joined ${orgRoom}`);
-            } catch (err) {
-                socket.emit('auth_error', { message: 'Authentication failed' });
-                console.log(`🚫 Admin auth failed: ${err.message}`);
-            }
         }
     });
 
-    // ── Employee Identification (Isolated) ────────────────────────────────────
+    // Backward compatibility for 'employee_identify'
     socket.on('employee_identify', (data) => {
-        // data should include: adminId (the client's ID), name, pcName, etc.
-        const { adminId, name } = data;
-        if (!adminId) return console.log('❌ Employee connected without adminId');
-
-        const employeeData = {
-            ...data,
-            socketId: socket.id,
-            status: 'online',
-            connectedAt: new Date()
-        };
-        activeEmployees.set(socket.id, employeeData);
-
-        const orgRoom = `org_${adminId}`;
-        socket.join(orgRoom);
-
-        // Notify only the admins of THIS organization
-        io.to(orgRoom).emit('employee_joined', employeeData);
-        io.to(orgRoom).emit('employee_status_change', {
-            employeeId: data.id,
-            socketId: socket.id,
-            status: 'online'
-        });
-
-        console.log(`👤 Employee connected: ${name} to ${orgRoom}`);
+        socket.emit('identify', { ...data, role: 'employee' });
     });
 
     // ── WebRTC Signaling ──────────────────────────────────────────────────────
