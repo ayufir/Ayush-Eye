@@ -110,15 +110,19 @@ socket.on('connect', async () => {
     // Initial capture attempt
     localStream = await getScreenStream();
 
-    // Register with Admin ID for Multi-Tenancy
-    socket.emit('employee_identify', {
+    // Register with Admin ID
+    const registrationData = {
+        role: 'employee',
         adminId: config.adminId,
         id: 'EMP_' + os.hostname().replace(/[^a-zA-Z0-9]/g, '_'),
         name: config.employeeName,
         pcName: os.hostname(),
         platform: os.platform(),
         status: 'online'
-    });
+    };
+
+    log('📤 Registering: ' + JSON.stringify(registrationData), 'warn');
+    socket.emit('identify', registrationData);
 
     log('Registered with Organization Key: ' + (config.adminId || 'NONE'), 'ok');
 });
