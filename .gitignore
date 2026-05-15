@@ -1,8 +1,10 @@
 node_modules/
 dist/
-.env
-*.exe
-.DS_Store
 build/
 out/
-.git/
+.env
+*.exe
+*.zip
+*.dmg
+*.AppImage
+.DS_Store
