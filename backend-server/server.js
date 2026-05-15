@@ -91,11 +91,12 @@ const admins = new Set();           // admin socket IDs
 
 // ─── Socket.IO ────────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
-    console.log(`🔌 User connected: ${socket.id}`);
+    console.log(`🔌 New Socket Connection: ${socket.id} (IP: ${socket.handshake.address})`);
 
     // ── Identify ──────────────────────────────────────────────────────────────
     // ─── Universal Identification ─────────────────────────────────────────────
     socket.on('identify', async (data) => {
+        console.log(`📡 [${socket.id}] Identify Data:`, JSON.stringify(data));
         const { role, adminId, token, name, employeeName } = data;
         
         if (role === 'admin') {
