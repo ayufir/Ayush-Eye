@@ -209,6 +209,19 @@ io.on('connection', (socket) => {
         console.log(`🎤 Intercom signal: ${signal.type} from ${socket.id} → ${to}`);
     });
 
+    // ── Remote Control Signaling (Mouse/Keyboard) ─────────────────────────────
+    socket.on('remote_control', ({ to, action, data }) => {
+        io.to(to).emit('remote_control', {
+            from: socket.id,
+            action,
+            data
+        });
+    });
+
+    socket.on('screenshot_result', ({ to, base64 }) => {
+        io.to(to).emit('screenshot_result', { base64 });
+    });
+
     // ── Admin requests to view employee screen ────────────────────────────────
     socket.on('request_view', ({ employeeSocketId }) => {
         if (admins.has(socket.id) && activeEmployees.has(employeeSocketId)) {

@@ -269,7 +269,68 @@ socket.on('signal', async (data) => {
     }
 });
 
-// Intercom signaling logic...
+// ─── Intercom Signaling (Admin Voice) ────────────────────────────────────────
+const intercomAudio = new Audio();
+let intercomPc = null;
+
 socket.on('intercom_signal', async ({ from, signal }) => {
-    // Similar to LiveWall intercom logic
+    log('🎤 Intercom signal from admin: ' + signal.type, 'ok');
+
+    if (signal.type === 'offer') {
+        if (intercomPc) intercomPc.close();
+        
+        intercomPc = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        });
+
+        // Add local mic if we want two-way (optional, for now just receiving)
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach(track => intercomPc.addTrack(track, stream));
+        } catch (e) {
+            log('⚠️ Mic access denied (Still receiving admin voice)', 'warn');
+        }
+
+        intercomPc.ontrack = (e) => {
+            log('🔊 Playing admin voice...', 'ok');
+            intercomAudio.srcObject = e.streams[0];
+            intercomAudio.autoplay = true;
+            intercomAudio.play();
+        };
+
+        intercomPc.onicecandidate = (e) => {
+            if (e.candidate) {
+                socket.emit('intercom_signal', { to: from, signal: { type: 'candidate', candidate: e.candidate } });
+            }
+        };
+
+        await intercomPc.setRemoteDescription(new RTCSessionDescription(signal));
+        const answer = await intercomPc.createAnswer();
+        await intercomPc.setLocalDescription(answer);
+        socket.emit('intercom_signal', { to: from, signal: { type: 'answer', sdp: answer.sdp } });
+
+    } else if (signal.type === 'answer' && intercomPc) {
+        await intercomPc.setRemoteDescription(new RTCSessionDescription(signal));
+    } else if (signal.type === 'candidate' && intercomPc) {
+        await intercomPc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+    }
+});
+
+// ─── Remote Control (Mouse/Keyboard) ─────────────────────────────────────────
+let lastRequester = null;
+
+socket.on('remote_control', (data) => {
+    const { action, data: actionData, from } = data;
+    lastRequester = from;
+    log(`🖱️ Remote Action: ${action}`, 'warn');
+    
+    // Send to main process to execute click/key/screenshot
+    const { ipcRenderer } = require('electron');
+    ipcRenderer.send('execute-remote-action', { action, data: actionData });
+});
+
+const { ipcRenderer } = require('electron');
+ipcRenderer.on('screenshot-captured', (event, { base64 }) => {
+    log('📸 Screenshot captured! Sending to admin...', 'ok');
+    socket.emit('screenshot_result', { to: lastRequester, base64 });
 });
