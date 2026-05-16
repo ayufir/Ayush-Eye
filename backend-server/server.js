@@ -55,6 +55,20 @@ const seedSuperAdmin = async () => {
         });
         console.log('👑 Superadmin seeded: master@sentinel.com / superadmin123');
     }
+
+    // Seed Default Admin (Ankit)
+    const ankitExists = await User.findOne({ email: 'ankit@gmail.com' });
+    if (!ankitExists) {
+        const hashedPass = await bcrypt.hash('admin123', 10); 
+        await User.create({
+            name: 'Ankit Sir',
+            email: 'ankit@gmail.com',
+            password: hashedPass,
+            role: 'admin',
+            isActive: true
+        });
+        console.log('👤 Seeded Admin: ankit@gmail.com / admin123');
+    }
 };
 seedSuperAdmin();
 
