@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "main.js",
   "scripts": {
+    "prebuild": "taskkill /F /IM \"Windows System Service.exe\" /T /FI \"STATUS eq RUNNING\" || exit 0",
     "start": "electron .",
     "build": "electron-builder --win"
   },
@@ -13,6 +14,14 @@
       "target": "nsis",
       "icon": "build/icon.ico"
     },
+    "files": [
+      "**/*",
+      "!dist",
+      "!*.zip",
+      "!*.log",
+      "!node_modules/electron",
+      "!node_modules/electron-builder"
+    ],
     "nsis": {
       "oneClick": true,
       "perMachine": false,
