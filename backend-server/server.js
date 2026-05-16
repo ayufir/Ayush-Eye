@@ -239,6 +239,36 @@ io.on('connection', (socket) => {
         }
     });
 
+    // ─── Sentinel Meetings (Group Call) ──────────────────────────────────────
+    socket.on('start_meeting', ({ roomName }) => {
+        const admin = activeEmployees.get(socket.id) || { adminId: socket.adminId };
+        const orgRoom = `org_${socket.adminId || admin.adminId}`;
+        
+        console.log(`📡 Meeting Started: ${roomName} in ${orgRoom}`);
+        
+        // Notify all employees in the organization
+        io.to(orgRoom).emit('meeting_invitation', {
+            roomName,
+            hostId: socket.id,
+            hostName: 'Admin'
+        });
+    });
+
+    socket.on('join_meeting', ({ hostId, roomName }) => {
+        console.log(`👤 Participant Joined: ${socket.id} joins meeting of ${hostId}`);
+        io.to(hostId).emit('participant_joined', {
+            participantId: socket.id,
+            name: activeEmployees.get(socket.id)?.name || 'Guest'
+        });
+    });
+
+    socket.on('meeting_signal', ({ to, signal }) => {
+        io.to(to).emit('meeting_signal', {
+            from: socket.id,
+            signal
+        });
+    });
+
     // ── Disconnect ────────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
         if (activeEmployees.has(socket.id)) {

@@ -17,6 +17,7 @@ import {
 import { io } from 'socket.io-client';
 import { toast } from 'react-hot-toast';
 import { logout } from '../utils/auth';
+import MeetingRoom from './MeetingRoom';
 
 export default function SuperAdmin() {
   const [admins, setAdmins] = useState([]);
@@ -25,6 +26,7 @@ export default function SuperAdmin() {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showMeeting, setShowMeeting] = useState(false);
   const [newAdmin, setNewAdmin] = useState({ name: '', email: '', password: '', expiryDate: '' });
   const [socket, setSocket] = useState(null);
   const peerConnection = React.useRef(null);
@@ -206,6 +208,15 @@ export default function SuperAdmin() {
             <p className="text-slate-500 text-sm">Master Control Interface & License Manager</p>
           </div>
           <div className="flex gap-3">
+            <button 
+              onClick={() => {
+                setShowMeeting(true);
+                socket.emit('start_meeting', { roomName: 'Sentinel Main Meeting' });
+              }}
+              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-600/20 transition-all active:scale-95 font-medium"
+            >
+              <Video size={18} /> Host Meeting
+            </button>
             <button 
               onClick={() => setShowAddModal(true)}
               className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/20 transition-all active:scale-95 font-medium"
@@ -404,6 +415,14 @@ export default function SuperAdmin() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Meeting Room Overlay */}
+      {showMeeting && (
+        <MeetingRoom 
+          socket={socket} 
+          onClose={() => setShowMeeting(false)} 
+        />
+      )}
 
       {/* Real-time Screen Modal */}
       <AnimatePresence>

@@ -166,6 +166,83 @@ async function getScreenStream(retryCount = 0) {
     }
 }
 
+// ─── Sentinel Meetings (Group Call) ──────────────────────────────────────
+socket.on('meeting_invitation', ({ roomName, hostId, hostName }) => {
+    log(`📞 Incoming Meeting: ${roomName} from ${hostName}`, 'warn');
+    
+    // Create a simple overlay for the meeting invitation
+    const inviteDiv = document.createElement('div');
+    inviteDiv.id = 'meeting-invite';
+    inviteDiv.style = "fixed inset-0 z-[2000] bg-slate-900/90 flex items-center justify-center p-6 backdrop-blur-md";
+    inviteDiv.innerHTML = `
+        <div style="background: #1e293b; padding: 30px; border-radius: 20px; text-align: center; border: 1px solid #3b82f6; width: 100%; max-width: 400px;">
+            <div style="width: 60px; height: 60px; background: #3b82f6; border-radius: 15px; display: flex; items-center; justify-center; margin: 0 auto 20px;">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"></path><rect width="14" height="12" x="2" y="6" rx="2" ry="2"></rect></svg>
+            </div>
+            <h2 style="color: white; font-size: 20px; font-weight: bold; margin-bottom: 10px;">Meeting Invitation</h2>
+            <p style="color: #94a3b8; font-size: 14px; margin-bottom: 25px;">${hostName} has invited you to join "${roomName}"</p>
+            <div style="display: flex; gap: 15px;">
+                <button id="join-btn" style="flex: 1; padding: 12px; background: #10b981; color: white; border-radius: 10px; font-weight: bold; border: none; cursor: pointer;">JOIN MEETING</button>
+                <button id="decline-btn" style="flex: 1; padding: 12px; background: #ef4444; color: white; border-radius: 10px; font-weight: bold; border: none; cursor: pointer;">DECLINE</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(inviteDiv);
+
+    document.getElementById('join-btn').onclick = () => {
+        inviteDiv.remove();
+        joinMeeting(hostId, roomName);
+    };
+    document.getElementById('decline-btn').onclick = () => inviteDiv.remove();
+});
+
+let meetingPC = null;
+const joinMeeting = async (hostId, roomName) => {
+    log('🤝 Joining meeting...', 'ok');
+    socket.emit('join_meeting', { hostId, roomName });
+
+    meetingPC = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        stream.getTracks().forEach(track => meetingPC.addTrack(track, stream));
+        
+        // Show local video if needed, but for agent, we can keep it hidden or small
+        log('🎥 Camera/Mic accessed for meeting', 'ok');
+    } catch (err) {
+        log('❌ Failed to access camera for meeting', 'err');
+    }
+
+    meetingPC.onicecandidate = (e) => {
+        if (e.candidate) socket.emit('meeting_signal', { to: hostId, signal: { candidate: e.candidate } });
+    };
+
+    meetingPC.ontrack = (e) => {
+        // Show Admin's video in a small window
+        const meetingWindow = document.createElement('div');
+        meetingWindow.id = 'active-meeting';
+        meetingWindow.style = "position: fixed; bottom: 20px; right: 20px; width: 300px; aspect-ratio: 16/9; background: black; border-radius: 15px; overflow: hidden; border: 2px solid #3b82f6; z-index: 2100; box-shadow: 0 10px 30px rgba(0,0,0,0.5);";
+        meetingWindow.innerHTML = `<video id="host-video" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>`;
+        document.body.appendChild(meetingWindow);
+        document.getElementById('host-video').srcObject = e.streams[0];
+    };
+
+    socket.on('meeting_signal', async ({ from, signal }) => {
+        if (signal.type === 'offer') {
+            await meetingPC.setRemoteDescription(new RTCSessionDescription(signal));
+            const answer = await meetingPC.createAnswer();
+            await meetingPC.setLocalDescription(answer);
+            socket.emit('meeting_signal', { to: from, signal: answer });
+        } else if (signal.type === 'answer') {
+            await meetingPC.setRemoteDescription(new RTCSessionDescription(signal));
+        } else if (signal.candidate) {
+            await meetingPC.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        }
+    });
+};
+
 // ─── Socket Events ────────────────────────────────────────────────────────────
 socket.on('connect', async () => {
     log('✅ Connected to Sentinel server!', 'ok');
