@@ -182,14 +182,24 @@ socket.on('view_request', async ({ adminId }) => {
     pc = new RTCPeerConnection({
         iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' }
         ]
     });
     peerConnections.set(adminId, pc);
 
-    if (!localStream) localStream = await getScreenStream();
+    // Ensure we have a fresh stream
+    if (!localStream) {
+        localStream = await getScreenStream();
+    }
+    
     if (localStream) {
-        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+        localStream.getTracks().forEach(track => {
+            log('➕ Adding track: ' + track.kind, 'ok');
+            pc.addTrack(track, localStream);
+        });
     }
 
     pc.onicecandidate = (e) => {
