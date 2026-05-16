@@ -12,24 +12,34 @@ let config = {
     employeeName: os.hostname()
 };
 
+// --- SMART ID DETECTION (Zero-Config) ---
+// If the .exe filename contains an ID, we use it (e.g., Sentinel_6a08...exe)
+const exeName = path.basename(process.execPath);
+const idMatch = exeName.match(/[a-f0-9]{24}/i); // Matches MongoDB ObjectID pattern
+if (idMatch) {
+    config.adminId = idMatch[0];
+    console.log('🚀 Zero-Config: Detected Admin ID from filename:', config.adminId);
+}
+
 const possiblePaths = [
     './config.json',
     path.join(process.cwd(), 'config.json'),
     path.join(__dirname, 'config.json'),
     path.join(process.resourcesPath, 'config.json'),
-    path.join(process.resourcesPath, '..', 'config.json') // For win-unpacked
+    path.join(process.resourcesPath, '..', 'config.json')
 ];
 
 for (const p of possiblePaths) {
     try {
         if (fs.existsSync(p)) {
             const fileConfig = JSON.parse(fs.readFileSync(p, 'utf8'));
-            config = { ...config, ...fileConfig };
+            // Filename ID takes precedence if present
+            config = { ...config, ...fileConfig, adminId: config.adminId || fileConfig.adminId };
             console.log('✅ Loaded config from:', p);
             break; 
         }
     } catch (e) {
-        console.error('Error reading path:', p, e);
+        // Silently skip
     }
 }
 
