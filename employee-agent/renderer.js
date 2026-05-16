@@ -204,13 +204,13 @@ socket.on('disconnect', () => {
     peerConnections.clear();
 });
 
-socket.on('view_request', async ({ adminId }) => {
-    log('📺 Admin requesting screen view...', 'ok');
+socket.on('view_request', async ({ from }) => {
+    log('📺 Admin requesting screen view from: ' + from, 'ok');
     
-    let pc = peerConnections.get(adminId);
+    let pc = peerConnections.get(from);
     if (pc) {
         pc.close();
-        peerConnections.delete(adminId);
+        peerConnections.delete(from);
     }
 
     pc = new RTCPeerConnection({
@@ -222,50 +222,47 @@ socket.on('view_request', async ({ adminId }) => {
             { urls: 'stun:stun4.l.google.com:19302' }
         ]
     });
-    peerConnections.set(adminId, pc);
+    peerConnections.set(from, pc);
 
-    // Ensure we have a fresh stream
     if (!localStream) {
         localStream = await getScreenStream();
     }
     
     if (localStream) {
         localStream.getTracks().forEach(track => {
-            log('➕ Adding track: ' + track.kind, 'ok');
             pc.addTrack(track, localStream);
         });
-    }
 
-    pc.onicecandidate = (e) => {
-        if (e.candidate) {
-            socket.emit('rtc_signal', { to: adminId, signal: { type: 'candidate', candidate: e.candidate } });
+        pc.onicecandidate = (e) => {
+            if (e.candidate) {
+                socket.emit('signal', { target: from, candidate: e.candidate });
+            }
+        };
+
+        try {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socket.emit('signal', { target: from, type: 'offer', sdp: offer.sdp });
+            log('📤 Sent screen offer to admin', 'warn');
+        } catch (err) {
+            log('❌ Failed to create offer: ' + err.message, 'error');
         }
-    };
-
-    // Create and send offer
-    try {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        socket.emit('rtc_signal', { to: adminId, signal: { type: 'offer', sdp: offer.sdp } });
-        log('📤 Sent screen offer to admin', 'warn');
-    } catch (err) {
-        log('❌ Failed to create offer: ' + err.message, 'error');
     }
 });
 
-socket.on('rtc_signal', async ({ from, signal }) => {
-    const pc = peerConnections.get(from);
+socket.on('signal', async (data) => {
+    const pc = peerConnections.get(data.from);
     if (!pc) return;
 
     try {
-        if (signal.type === 'answer') {
-            await pc.setRemoteDescription(new RTCSessionDescription(signal));
+        if (data.type === 'answer') {
+            await pc.setRemoteDescription(new RTCSessionDescription(data));
             log('✅ Received answer from admin', 'ok');
-        } else if (signal.type === 'candidate' && signal.candidate) {
-            await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        } else if (data.candidate) {
+            await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
         }
     } catch (err) {
-        console.error('WebRTC signal error:', err);
+        log('❌ Signaling error: ' + err.message, 'error');
     }
 });
 
