@@ -328,13 +328,24 @@ export default function SuperAdmin() {
                             </div>
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <button 
-                              onClick={() => extendExpiry(admin._id, admin.expiryDate)}
-                              className="p-2 text-slate-500 hover:text-blue-400 hover:bg-blue-400/10 rounded-xl transition-all"
-                              title="Manage License"
-                            >
-                              <Calendar size={18} />
-                            </button>
+                            <div className="flex items-center justify-end gap-2">
+                                <a 
+                                  href="https://ayush-eye-2-adminapp.onrender.com" 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="p-2 text-slate-500 hover:text-emerald-400 hover:bg-emerald-400/10 rounded-xl transition-all"
+                                  title="Open Admin Portal"
+                                >
+                                  <LayoutDashboard size={18} />
+                                </a>
+                                <button 
+                                  onClick={() => extendExpiry(admin._id, admin.expiryDate)}
+                                  className="p-2 text-slate-500 hover:text-blue-400 hover:bg-blue-400/10 rounded-xl transition-all"
+                                  title="Manage License"
+                                >
+                                  <Calendar size={18} />
+                                </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
