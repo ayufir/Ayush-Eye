@@ -53,10 +53,15 @@ for (const p of possiblePaths) {
 // ─── UI Helpers ───────────────────────────────────────────────────────────────
 function log(msg, type = '') {
     console.log(msg);
+    const logLine = new Date().toLocaleTimeString() + ' — ' + msg + '\n';
+    try {
+        fs.appendFileSync('debug.log', logLine);
+    } catch (e) {}
+
     const logEl = document.getElementById('log');
     if (logEl) {
         const p = document.createElement('p');
-        p.textContent = new Date().toLocaleTimeString() + ' — ' + msg;
+        p.textContent = logLine;
         p.className = type;
         logEl.prepend(p);
     }
