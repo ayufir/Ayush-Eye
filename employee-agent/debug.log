@@ -67,3 +67,15 @@
 2:20:03 PM — ➕ Adding track: video
 2:20:04 PM — 📤 Sent screen offer to admin
 2:20:04 PM — 📤 Sent screen offer to admin
+2:35:10 PM — ❌ Disconnected from server
+2:35:45 PM — ✅ Connected to Sentinel server!
+2:35:45 PM — 📤 Registering: {"role":"employee","adminId":"6a06fa324239414a07c306ff","id":"EMP_DESKTOP_5Q4NMNB","name":"Sentinel-PC","pcName":"DESKTOP-5Q4NMNB","platform":"win32","status":"online"}
+2:35:45 PM — Registered with Organization Key: 6a06fa324239414a07c306ff
+2:37:29 PM — ✅ Loaded Config from: ./config.json
+2:37:29 PM — 📡 Server: https://ayush-eye-1.onrender.com
+2:37:29 PM — 🆔 Admin ID: 6a06fa324239414a07c306ff
+2:37:31 PM — ✅ Connected to Sentinel server!
+2:37:31 PM — Capturing: Entire screen
+2:37:31 PM — ✅ Screen stream ready!
+2:37:31 PM — 📤 Registering: {"role":"employee","adminId":"6a06fa324239414a07c306ff","id":"EMP_DESKTOP_5Q4NMNB","name":"Sentinel-PC","pcName":"DESKTOP-5Q4NMNB","platform":"win32","status":"online"}
+2:37:31 PM — Registered with Organization Key: 6a06fa324239414a07c306ff
