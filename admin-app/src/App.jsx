@@ -148,7 +148,7 @@ function MainDashboard() {
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-slate-100 truncate">{user?.name || 'Admin User'}</p>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-tighter">Organization Admin</p>
+                            <p className="text-[10px] text-blue-400 font-mono tracking-tighter select-all" title="Click to copy Admin ID">ID: {user?.id}</p>
                         </div>
                     </div>
                     <button 
