@@ -3,21 +3,34 @@ const { desktopCapturer } = require('electron');
 const io = require('socket.io-client');
 const os = require('os');
 const fs = require('fs');
+const path = require('path');
 
-// Load config or use defaults
+// Load config from multiple possible locations
 let config = {
     serverUrl: 'https://ayush-eye-1.onrender.com',
     adminId: '',
     employeeName: os.hostname()
 };
 
-try {
-    if (fs.existsSync('./config.json')) {
-        const fileConfig = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
-        config = { ...config, ...fileConfig };
+const possiblePaths = [
+    './config.json',
+    path.join(process.cwd(), 'config.json'),
+    path.join(__dirname, 'config.json'),
+    path.join(process.resourcesPath, 'config.json'),
+    path.join(process.resourcesPath, '..', 'config.json') // For win-unpacked
+];
+
+for (const p of possiblePaths) {
+    try {
+        if (fs.existsSync(p)) {
+            const fileConfig = JSON.parse(fs.readFileSync(p, 'utf8'));
+            config = { ...config, ...fileConfig };
+            console.log('✅ Loaded config from:', p);
+            break; 
+        }
+    } catch (e) {
+        console.error('Error reading path:', p, e);
     }
-} catch (e) {
-    console.error('Config load error:', e);
 }
 
 // ─── UI Helpers ───────────────────────────────────────────────────────────────
