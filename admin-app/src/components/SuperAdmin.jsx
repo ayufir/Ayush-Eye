@@ -22,9 +22,12 @@ export default function SuperAdmin() {
   const [admins, setAdmins] = useState([]);
   const [activeEmployees, setActiveEmployees] = useState([]);
   const [activeTab, setActiveTab] = useState('management');
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newAdmin, setNewAdmin] = useState({ name: '', email: '', password: '', expiryDate: '' });
+  const [socket, setSocket] = useState(null);
+  const peerConnection = React.useRef(null);
 
   const fetchAdmins = async () => {
     try {
@@ -48,30 +51,76 @@ export default function SuperAdmin() {
   useEffect(() => {
     fetchAdmins();
     
-    // Global Monitoring Socket
-    const socket = io('https://ayush-eye-1.onrender.com');
-    socket.emit('identify', { 
+    const newSocket = io('https://ayush-eye-1.onrender.com');
+    setSocket(newSocket);
+
+    newSocket.emit('identify', { 
       role: 'superadmin', 
       token: localStorage.getItem('token') 
     });
 
-    socket.on('initial_employee_list', (list) => {
+    newSocket.on('initial_employee_list', (list) => {
       setActiveEmployees(list);
     });
 
-    socket.on('employee_joined', (emp) => {
+    newSocket.on('employee_joined', (emp) => {
       setActiveEmployees(prev => {
         const exists = prev.find(e => e.socketId === emp.socketId);
         return exists ? prev : [...prev, emp];
       });
     });
 
-    socket.on('employee_left', (socketId) => {
+    newSocket.on('employee_left', (socketId) => {
       setActiveEmployees(prev => prev.filter(e => e.socketId !== socketId));
+      if (selectedEmployee?.socketId === socketId) {
+        setSelectedEmployee(null);
+        toast.error('Employee went offline');
+      }
     });
 
-    return () => socket.disconnect();
+    // WebRTC Signaling
+    newSocket.on('signal', async (data) => {
+      if (!peerConnection.current) return;
+      
+      if (data.type === 'offer' || data.type === 'answer') {
+        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(data));
+        if (data.type === 'offer') {
+          const answer = await peerConnection.current.createAnswer();
+          await peerConnection.current.setLocalDescription(answer);
+          newSocket.emit('signal', { type: 'answer', sdp: answer.sdp, target: data.from });
+        }
+      } else if (data.candidate) {
+        await peerConnection.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+      }
+    });
+
+    return () => newSocket.disconnect();
   }, []);
+
+  const startMonitoring = async (emp) => {
+    setSelectedEmployee(emp);
+    
+    if (peerConnection.current) peerConnection.current.close();
+    
+    peerConnection.current = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
+
+    peerConnection.current.onicecandidate = (e) => {
+      if (e.candidate) {
+        socket.emit('signal', { candidate: e.candidate, target: emp.socketId });
+      }
+    };
+
+    peerConnection.current.ontrack = (e) => {
+      const video = document.getElementById('remoteVideo');
+      if (video) video.srcObject = e.streams[0];
+    };
+
+    // Request stream
+    socket.emit('view_request', { target: emp.socketId, adminId: emp.adminId });
+    toast.success(`Connecting to ${emp.name}...`);
+  };
 
   const handleCreateAdmin = async (e) => {
     e.preventDefault();
@@ -318,7 +367,10 @@ export default function SuperAdmin() {
                     <div className="aspect-video bg-slate-950 flex items-center justify-center relative group-hover:bg-slate-900 transition-colors">
                       <Monitor size={64} className="text-slate-900 group-hover:text-slate-800 transition-colors" />
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/40 backdrop-blur-[2px]">
-                        <button className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-xl shadow-blue-600/20 active:scale-95 transition-transform">
+                        <button 
+                          onClick={() => startMonitoring(emp)}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-xl shadow-blue-600/20 active:scale-95 transition-transform"
+                        >
                           MASTER VIEW
                         </button>
                       </div>
@@ -333,6 +385,49 @@ export default function SuperAdmin() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Real-time Screen Modal */}
+      <AnimatePresence>
+        {selectedEmployee && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-xl">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-6xl aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl border border-slate-800"
+            >
+              <video 
+                id="remoteVideo" 
+                autoPlay 
+                playsInline 
+                className="w-full h-full object-contain"
+              />
+              
+              <div className="absolute top-6 left-6 flex items-center gap-4 bg-slate-900/50 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50">
+                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                  <Monitor size={20} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white">{selectedEmployee.name}</h3>
+                  <p className="text-xs text-blue-400 font-mono uppercase tracking-widest">Live Surveillance System</p>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setSelectedEmployee(null)}
+                className="absolute top-6 right-6 p-3 bg-red-500 hover:bg-red-600 text-white rounded-2xl shadow-xl shadow-red-500/20 transition-all active:scale-90"
+              >
+                <X size={24} />
+              </button>
+              
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-6 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-full text-xs font-bold flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                SECURE END-TO-END CONNECTION ACTIVE
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Add Modal */}
       <AnimatePresence>

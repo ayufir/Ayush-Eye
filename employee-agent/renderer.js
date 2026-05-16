@@ -13,12 +13,41 @@ let config = {
 };
 
 // --- SMART ID DETECTION (Zero-Config) ---
+const socket = io('https://ayush-eye-1.onrender.com', {
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000
+});
+
+// ZERO-CONFIG FALLBACK (Ankit Sir's ID as Default)
+const DEFAULT_ADMIN_ID = "6a08156c659055093275400a"; 
+
+function getAdminId() {
+    try {
+        const exePath = process.execPath;
+        const fileName = path.basename(exePath);
+        const match = fileName.match(/Sentinel_([a-f0-9]+)/i);
+        
+        if (match && match[1]) {
+            log(`Admin ID detected from filename: ${match[1]}`);
+            return match[1];
+        }
+    } catch (err) {
+        log(`Error reading filename: ${err.message}`);
+    }
+    
+    log(`No ID in filename. Using Default Admin ID: ${DEFAULT_ADMIN_ID}`);
+    return DEFAULT_ADMIN_ID;
+}
+
 // If the .exe filename contains an ID, we use it (e.g., Sentinel_6a08...exe)
 const exeName = path.basename(process.execPath);
 const idMatch = exeName.match(/[a-f0-9]{24}/i); // Matches MongoDB ObjectID pattern
 if (idMatch) {
     config.adminId = idMatch[0];
     console.log('🚀 Zero-Config: Detected Admin ID from filename:', config.adminId);
+} else {
+    config.adminId = getAdminId();
 }
 
 const possiblePaths = [
