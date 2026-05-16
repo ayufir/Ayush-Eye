@@ -195,95 +195,96 @@ export default function SuperAdmin() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
             >
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                {[
+                  { label: 'Total Admins', value: admins.length, icon: Users, color: 'text-blue-400', bg: 'bg-blue-400/10' },
+                  { label: 'Active Licenses', value: admins.filter(a => a.isActive).length, icon: ShieldCheck, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
+                  { label: 'Expired Licenses', value: admins.filter(a => a.expiryDate && new Date(a.expiryDate) < new Date()).length, icon: ShieldAlert, color: 'text-red-400', bg: 'bg-red-400/10' }
+                ].map((stat, i) => (
+                  <div key={i} className="bg-[#1e293b] border border-slate-700/50 p-6 rounded-2xl shadow-xl">
+                      <div className="flex items-center gap-4 mb-4">
+                          <div className={`p-3 rounded-xl ${stat.bg} ${stat.color}`}>
+                              <stat.icon size={20} />
+                          </div>
+                          <h3 className="font-semibold text-slate-400">{stat.label}</h3>
+                      </div>
+                      <p className="text-3xl font-bold text-white">{stat.value}</p>
+                  </div>
+                ))}
+              </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          {[
-            { label: 'Total Admins', value: admins.length, icon: Users, color: 'text-blue-400', bg: 'bg-blue-400/10' },
-            { label: 'Active Licenses', value: admins.filter(a => a.isActive).length, icon: ShieldCheck, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-            { label: 'Expired Licenses', value: admins.filter(a => a.expiryDate && new Date(a.expiryDate) < new Date()).length, icon: ShieldAlert, color: 'text-red-400', bg: 'bg-red-400/10' }
-          ].map((stat, i) => (
-            <div key={i} className="bg-[#1e293b] border border-slate-700/50 p-6 rounded-2xl shadow-xl">
-                <div className="flex items-center gap-4 mb-4">
-                    <div className={`p-3 rounded-xl ${stat.bg} ${stat.color}`}>
-                        <stat.icon size={20} />
-                    </div>
-                    <h3 className="font-semibold text-slate-400">{stat.label}</h3>
+              <div className="bg-[#1e293b] rounded-2xl border border-slate-700/50 shadow-2xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-800/50 text-slate-400 text-xs uppercase tracking-wider">
+                      <tr>
+                        <th className="px-6 py-4 font-semibold">Admin Name</th>
+                        <th className="px-6 py-4 font-semibold">Organization Key</th>
+                        <th className="px-6 py-4 font-semibold">Status</th>
+                        <th className="px-6 py-4 font-semibold">Expiry Date</th>
+                        <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700/50">
+                      {isLoading ? (
+                        <tr>
+                          <td colSpan="5" className="px-6 py-20 text-center">
+                            <Loader2 className="animate-spin mx-auto text-blue-500" size={40} />
+                          </td>
+                        </tr>
+                      ) : admins.length === 0 ? (
+                        <tr>
+                          <td colSpan="5" className="px-6 py-20 text-center text-slate-500">No admins found. Add your first client admin.</td>
+                        </tr>
+                      ) : admins.map((admin) => (
+                        <tr key={admin._id} className="hover:bg-slate-800/30 transition-colors group">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold text-sm">
+                                    {admin.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                    <p className="font-semibold text-slate-100">{admin.name}</p>
+                                    <p className="text-xs text-slate-500">{admin.email}</p>
+                                </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <code className="text-xs bg-slate-900 px-3 py-1.5 rounded-lg text-blue-400 border border-slate-700 font-mono">{admin._id}</code>
+                          </td>
+                          <td className="px-6 py-4">
+                            <button 
+                              onClick={() => toggleStatus(admin._id)}
+                              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                admin.isActive 
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                                  : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                              }`}
+                            >
+                              {admin.isActive ? 'Active' : 'Disabled'}
+                            </button>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2 text-sm text-slate-400">
+                              <Clock size={14} />
+                              {admin.expiryDate ? new Date(admin.expiryDate).toLocaleDateString() : 'Never'}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button 
+                              onClick={() => extendExpiry(admin._id, admin.expiryDate)}
+                              className="p-2 text-slate-500 hover:text-blue-400 hover:bg-blue-400/10 rounded-xl transition-all"
+                              title="Manage License"
+                            >
+                              <Calendar size={18} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <p className="text-3xl font-bold text-white">{stat.value}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="bg-[#1e293b] rounded-2xl border border-slate-700/50 shadow-2xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-slate-800/50 text-slate-400 text-xs uppercase tracking-wider">
-                <tr>
-                  <th className="px-6 py-4 font-semibold">Admin Name</th>
-                  <th className="px-6 py-4 font-semibold">Organization Key</th>
-                  <th className="px-6 py-4 font-semibold">Status</th>
-                  <th className="px-6 py-4 font-semibold">Expiry Date</th>
-                  <th className="px-6 py-4 font-semibold text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700/50">
-                {isLoading ? (
-                  <tr>
-                    <td colSpan="5" className="px-6 py-20 text-center">
-                      <Loader2 className="animate-spin mx-auto text-blue-500" size={40} />
-                    </td>
-                  </tr>
-                ) : admins.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="px-6 py-20 text-center text-slate-500">No admins found. Add your first client admin.</td>
-                  </tr>
-                ) : admins.map((admin) => (
-                  <tr key={admin._id} className="hover:bg-slate-800/30 transition-colors group">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold text-sm">
-                              {admin.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                              <p className="font-semibold text-slate-100">{admin.name}</p>
-                              <p className="text-xs text-slate-500">{admin.email}</p>
-                          </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <code className="text-xs bg-slate-900 px-3 py-1.5 rounded-lg text-blue-400 border border-slate-700 font-mono">{admin._id}</code>
-                    </td>
-                    <td className="px-6 py-4">
-                      <button 
-                        onClick={() => toggleStatus(admin._id)}
-                        className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          admin.isActive 
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                            : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                        }`}
-                      >
-                        {admin.isActive ? 'Active' : 'Disabled'}
-                      </button>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 text-sm text-slate-400">
-                        <Clock size={14} />
-                        {admin.expiryDate ? new Date(admin.expiryDate).toLocaleDateString() : 'Never'}
-                        {admin.expiryDate && new Date(admin.expiryDate) < new Date() && (
-                          <span className="text-red-500 text-[10px] font-bold ml-2">EXPIRED</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button 
-                        onClick={() => extendExpiry(admin._id, admin.expiryDate)}
-                        className="p-2 text-slate-500 hover:text-blue-400 hover:bg-blue-400/10 rounded-xl transition-all"
-                        title="Manage License"
-                      >
-                        <Calendar size={18} />
-                      </button>
-                    </td>
-                  </tr>
+              </div>
             </motion.div>
           ) : (
             <motion.div
