@@ -153,57 +153,58 @@ socket.on('disconnect', () => {
     peerConnections.clear();
 });
 
-socket.on('view_request', async () => {
+socket.on('view_request', async ({ adminId }) => {
     log('📺 Admin requesting screen view...', 'ok');
-    if (!localStream) localStream = await getScreenStream();
     
-    // Notify all active peer connections to refresh if needed
-    // In this simple version, we just wait for rtc_signal
+    let pc = peerConnections.get(adminId);
+    if (pc) {
+        pc.close();
+        peerConnections.delete(adminId);
+    }
+
+    pc = new RTCPeerConnection({
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+        ]
+    });
+    peerConnections.set(adminId, pc);
+
+    if (!localStream) localStream = await getScreenStream();
+    if (localStream) {
+        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    }
+
+    pc.onicecandidate = (e) => {
+        if (e.candidate) {
+            socket.emit('rtc_signal', { to: adminId, signal: { type: 'candidate', candidate: e.candidate } });
+        }
+    };
+
+    // Create and send offer
+    try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socket.emit('rtc_signal', { to: adminId, signal: { type: 'offer', sdp: offer.sdp } });
+        log('📤 Sent screen offer to admin', 'warn');
+    } catch (err) {
+        log('❌ Failed to create offer: ' + err.message, 'error');
+    }
 });
 
 socket.on('rtc_signal', async ({ from, signal }) => {
-    let pc = peerConnections.get(from);
-
-    if (!pc) {
-        pc = new RTCPeerConnection({
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
-        });
-        peerConnections.set(from, pc);
-
-        if (!localStream) localStream = await getScreenStream();
-        if (localStream) {
-            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-        }
-
-        pc.onicecandidate = (e) => {
-            if (e.candidate) {
-                socket.emit('rtc_signal', { to: from, signal: { type: 'candidate', candidate: e.candidate } });
-            }
-        };
-
-        pc.onconnectionstatechange = () => {
-            if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-                peerConnections.delete(from);
-            }
-        };
-    }
+    const pc = peerConnections.get(from);
+    if (!pc) return;
 
     try {
-        if (signal.type === 'offer') {
+        if (signal.type === 'answer') {
             await pc.setRemoteDescription(new RTCSessionDescription(signal));
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            socket.emit('rtc_signal', { to: from, signal: { type: 'answer', sdp: answer.sdp } });
-        } else if (signal.type === 'answer') {
-            await pc.setRemoteDescription(new RTCSessionDescription(signal));
+            log('✅ Received answer from admin', 'ok');
         } else if (signal.type === 'candidate' && signal.candidate) {
             await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
         }
     } catch (err) {
-        console.error('WebRTC error:', err);
+        console.error('WebRTC signal error:', err);
     }
 });
 
