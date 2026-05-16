@@ -111,6 +111,12 @@ socket.on('connect', async () => {
     localStream = await getScreenStream();
 
     // Register with Admin ID
+    if (!config.adminId || config.adminId === "YOUR_ADMIN_ID") {
+        log('❌ ERROR: Admin ID is missing in config.json!', 'error');
+        setStatus('Error: Missing Admin ID', false);
+        return;
+    }
+
     const registrationData = {
         role: 'employee',
         adminId: config.adminId,
