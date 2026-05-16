@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import useStore from '../store';
-import { Maximize2, Mic, MousePointer2, Monitor, Wifi, WifiOff } from 'lucide-react';
+import { Maximize2, Mic, MousePointer2, Monitor, Wifi, WifiOff, Smartphone } from 'lucide-react';
 
 const ICE_SERVERS = {
     iceServers: [

@@ -268,68 +268,59 @@ const RemoteControl = ({ employee, socket, onClose }) => {
     return (
         <div className={`fixed inset-0 z-50 bg-black flex flex-col ${isFullscreen ? '' : ''}`}>
             {/* ─── Toolbar ─────────────────────────────────────────────────── */}
-            <div className="h-12 bg-slate-900 border-b border-slate-700 flex items-center justify-between px-4 flex-shrink-0">
-                <div className="flex items-center gap-3">
+            <div className="min-h-[3rem] bg-slate-900 border-b border-slate-700 flex flex-wrap items-center justify-between px-2 py-1 gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${
                         videoStatus === 'live' ? 'bg-emerald-500' :
                         videoStatus === 'connecting' ? 'bg-amber-500 animate-pulse' : 'bg-red-500'
                     }`} />
-                    <span className="text-sm font-semibold text-white">
-                        {videoStatus === 'live' ? '🔴 LIVE: ' : '⏳ Connecting: '}
-                        {employee?.name || employee?.pcName}
+                    <span className="text-[10px] sm:text-xs font-semibold text-white truncate max-w-[100px]">
+                        {videoStatus === 'live' ? '🔴 ' : '⏳ '}
+                        {employee?.name || 'Employee'}
                     </span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2">
                     <button 
                         title="Voice Intercom" 
                         onClick={toggleIntercom}
-                        className={`p-1.5 rounded flex items-center gap-1 text-xs font-medium transition-colors ${
+                        className={`p-2 rounded flex items-center gap-1 text-[10px] font-medium transition-colors ${
                             isIntercomActive 
                                 ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' 
-                                : 'hover:bg-slate-700 text-slate-400 hover:text-emerald-400'
+                                : 'bg-slate-800 text-slate-400 hover:text-emerald-400'
                         }`}
                     >
-                        {isIntercomActive ? <Mic size={15} /> : <MicOff size={15} />}
-                        {intercomStatus === 'connecting' ? 'Connecting...' : (isIntercomActive ? 'Voice Active' : 'Intercom')}
+                        {isIntercomActive ? <Mic size={14} /> : <MicOff size={14} />}
+                        <span className="hidden xs:inline">{isIntercomActive ? 'Live' : 'Mic'}</span>
                     </button>
-                    <div className="w-px h-5 bg-slate-700 mx-1" />
+                    
+                    <div className="flex bg-slate-800 rounded-lg p-0.5 border border-slate-700">
+                        <button 
+                            onClick={() => setIsMouseActive(!isMouseActive)}
+                            className={`p-2 rounded-lg transition-all ${isMouseActive ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500'}`}
+                        >
+                            <MousePointer size={14} />
+                        </button>
+                        <button 
+                            onClick={() => setIsKeyboardActive(!isKeyboardActive)}
+                            className={`p-2 rounded-lg transition-all ${isKeyboardActive ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500'}`}
+                        >
+                            <Keyboard size={14} />
+                        </button>
+                    </div>
+
                     <button 
-                        title="Remote Mouse Control" 
-                        onClick={() => setIsMouseActive(!isMouseActive)}
-                        className={`p-1.5 rounded transition-colors ${
-                            isMouseActive ? 'bg-blue-600 text-white' : 'hover:bg-slate-700 text-slate-400 hover:text-blue-400'
-                        }`}
+                        onClick={() => socket.emit('remote_control', { to: employee.socketId, action: 'screenshot' })}
+                        className="p-2 bg-slate-800 text-slate-400 hover:text-amber-400 rounded-lg border border-slate-700"
                     >
-                        <MousePointer size={15} />
+                        <Camera size={14} />
                     </button>
-                    <button 
-                        title="Remote Keyboard" 
-                        onClick={() => setIsKeyboardActive(!isKeyboardActive)}
-                        className={`p-1.5 rounded transition-colors ${
-                            isKeyboardActive ? 'bg-blue-600 text-white' : 'hover:bg-slate-700 text-slate-400 hover:text-blue-400'
-                        }`}
-                    >
-                        <Keyboard size={15} />
-                    </button>
-                    <button 
-                        title="Screenshot" 
-                        onClick={() => {
-                            toast.success('Requesting screenshot...');
-                            socket.emit('remote_control', { to: employee.socketId, action: 'screenshot' });
-                        }}
-                        className="p-1.5 hover:bg-slate-700 rounded text-slate-400 hover:text-amber-400"
-                    >
-                        <Camera size={15} />
-                    </button>
-                    <div className="w-px h-5 bg-slate-700 mx-1" />
+
                     <button
-                        title="Disconnect"
                         onClick={onClose}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded-lg text-xs font-medium transition-all"
+                        className="p-2 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded-lg transition-all"
                     >
                         <X size={14} />
-                        Disconnect
                     </button>
                 </div>
             </div>

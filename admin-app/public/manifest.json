@@ -1,0 +1,16 @@
+{
+  "name": "Sentinel Admin Portal",
+  "short_name": "Sentinel",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "description": "Enterprise-grade employee monitoring dashboard.",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
