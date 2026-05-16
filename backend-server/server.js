@@ -119,7 +119,7 @@ io.on('connection', (socket) => {
         console.log(`📡 [${socket.id}] Identify Data:`, JSON.stringify(data));
         const { role, adminId, token, name, employeeName } = data;
         
-        if (role === 'admin') {
+        if (role === 'admin' || role === 'superadmin') {
             try {
                 if (!token) throw new Error('No token provided');
                 const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -129,20 +129,29 @@ io.on('connection', (socket) => {
                     return socket.emit('auth_error', { message: 'Account suspended' });
                 }
 
-                const orgRoom = `org_${user._id.toString()}`;
-                socket.join(orgRoom);
                 socket.adminId = user._id.toString();
-                socket.role = 'admin';
+                socket.role = user.role;
                 admins.add(socket.id);
 
-                // Send current online employees for this org
-                const currentEmployees = Array.from(activeEmployees.values())
-                    .filter(emp => emp.adminId === socket.adminId);
-                
-                socket.emit('initial_employee_list', currentEmployees);
-                console.log(`🛡️ Admin Connected: ${user.email} (Room: ${orgRoom})`);
+                if (user.role === 'superadmin') {
+                    // Superadmin joins Global Monitoring
+                    socket.join('global_monitoring');
+                    // Send ALL connected employees
+                    const allEmployees = Array.from(activeEmployees.values());
+                    socket.emit('initial_employee_list', allEmployees);
+                    console.log(`👑 Superadmin Connected: ${user.email} (Global Mode)`);
+                } else {
+                    // Regular Admin joins their Org Room
+                    const orgRoom = `org_${user._id.toString()}`;
+                    socket.join(orgRoom);
+                    // Send only their employees
+                    const orgEmployees = Array.from(activeEmployees.values())
+                        .filter(emp => emp.adminId === socket.adminId);
+                    socket.emit('initial_employee_list', orgEmployees);
+                    console.log(`🛡️ Admin Connected: ${user.email} (Room: ${orgRoom})`);
+                }
             } catch (err) {
-                console.error('❌ Admin Auth Error:', err.message);
+                console.error('❌ Auth Error:', err.message);
                 socket.emit('auth_error', { message: 'Authentication failed' });
             }
         } else if (role === 'employee' || !role) {
@@ -151,7 +160,7 @@ io.on('connection', (socket) => {
             const empName = employeeName || name || 'Unknown Employee';
 
             if (!targetAdminId) {
-                return console.log('❌ Employee connection rejected: No adminId');
+                return; // Silent ignore invalid
             }
 
             const employeeData = {
@@ -171,11 +180,9 @@ io.on('connection', (socket) => {
 
             // Notify admins in this org
             io.to(orgRoom).emit('employee_joined', employeeData);
-            io.to(orgRoom).emit('employee_status_change', {
-                employeeId: data.id,
-                socketId: socket.id,
-                status: 'online'
-            });
+            
+            // ALSO notify superadmins globally
+            io.to('global_monitoring').emit('employee_joined', employeeData);
         }
     });
 

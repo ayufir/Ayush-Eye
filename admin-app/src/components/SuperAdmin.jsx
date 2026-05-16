@@ -10,13 +10,18 @@ import {
   Loader2,
   Clock,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  Monitor,
+  LayoutDashboard
 } from 'lucide-react';
+import { io } from 'socket.io-client';
 import { toast } from 'react-hot-toast';
 import { logout } from '../utils/auth';
 
 export default function SuperAdmin() {
   const [admins, setAdmins] = useState([]);
+  const [activeEmployees, setActiveEmployees] = useState([]);
+  const [activeTab, setActiveTab] = useState('management');
   const [isLoading, setIsLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newAdmin, setNewAdmin] = useState({ name: '', email: '', password: '', expiryDate: '' });
@@ -42,6 +47,30 @@ export default function SuperAdmin() {
 
   useEffect(() => {
     fetchAdmins();
+    
+    // Global Monitoring Socket
+    const socket = io('https://ayush-eye-1.onrender.com');
+    socket.emit('identify', { 
+      role: 'superadmin', 
+      token: localStorage.getItem('token') 
+    });
+
+    socket.on('initial_employee_list', (list) => {
+      setActiveEmployees(list);
+    });
+
+    socket.on('employee_joined', (emp) => {
+      setActiveEmployees(prev => {
+        const exists = prev.find(e => e.socketId === emp.socketId);
+        return exists ? prev : [...prev, emp];
+      });
+    });
+
+    socket.on('employee_left', (socketId) => {
+      setActiveEmployees(prev => prev.filter(e => e.socketId !== socketId));
+    });
+
+    return () => socket.disconnect();
   }, []);
 
   const handleCreateAdmin = async (e) => {
@@ -115,9 +144,9 @@ export default function SuperAdmin() {
                 <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                     <ShieldCheck size={20} className="text-white" />
                 </div>
-                <h1 className="text-2xl font-bold text-white tracking-tight">SUPERADMIN CONTROL</h1>
+                <h1 className="text-2xl font-bold text-white tracking-tight">SENTINEL GLOBAL</h1>
             </div>
-            <p className="text-slate-500 text-sm">Manage client administrator access and licenses</p>
+            <p className="text-slate-500 text-sm">Master Control Interface & License Manager</p>
           </div>
           <div className="flex gap-3">
             <button 
@@ -134,6 +163,38 @@ export default function SuperAdmin() {
             </button>
           </div>
         </header>
+
+        {/* Navigation Tabs */}
+        <div className="flex gap-4 mb-8 bg-slate-800/30 p-1.5 rounded-2xl w-fit border border-slate-700/50">
+          <button 
+            onClick={() => setActiveTab('management')}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl transition-all ${activeTab === 'management' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+          >
+            <LayoutDashboard size={18} />
+            Management
+          </button>
+          <button 
+            onClick={() => setActiveTab('monitoring')}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl transition-all ${activeTab === 'monitoring' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+          >
+            <Monitor size={18} />
+            Global Monitoring
+            {activeEmployees.length > 0 && (
+              <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1 font-bold animate-pulse">
+                {activeEmployees.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        <AnimatePresence mode="wait">
+          {activeTab === 'management' ? (
+            <motion.div
+              key="management"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           {[
@@ -223,11 +284,53 @@ export default function SuperAdmin() {
                       </button>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="monitoring"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {activeEmployees.length === 0 ? (
+                <div className="col-span-full py-24 text-center bg-slate-800/20 rounded-[32px] border-2 border-dashed border-slate-700">
+                  <Monitor size={64} className="mx-auto text-slate-700 mb-4" />
+                  <h3 className="text-xl font-semibold text-slate-400">No active employees across the network</h3>
+                  <p className="text-slate-500 text-sm">Agents will appear here automatically when they connect to any Admin.</p>
+                </div>
+              ) : (
+                activeEmployees.map(emp => (
+                  <div key={emp.socketId} className="bg-slate-800/80 border border-slate-700 rounded-3xl overflow-hidden group hover:border-blue-500/50 transition-all hover:shadow-2xl hover:shadow-blue-500/10">
+                    <div className="p-4 flex items-center justify-between border-b border-slate-700/50 bg-slate-900/50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-600/10 rounded-xl flex items-center justify-center text-blue-500 border border-blue-600/20">
+                          <Users size={20} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-sm text-white">{emp.name}</h4>
+                          <p className="text-[10px] text-slate-500 uppercase font-mono">Org: {emp.adminId.substring(0, 8)}...</p>
+                        </div>
+                      </div>
+                      <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_#22c55e]" title="Real-time Connected" />
+                    </div>
+                    <div className="aspect-video bg-slate-950 flex items-center justify-center relative group-hover:bg-slate-900 transition-colors">
+                      <Monitor size={64} className="text-slate-900 group-hover:text-slate-800 transition-colors" />
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/40 backdrop-blur-[2px]">
+                        <button className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-xl shadow-blue-600/20 active:scale-95 transition-transform">
+                          MASTER VIEW
+                        </button>
+                      </div>
+                      <div className="absolute top-2 right-2 px-2 py-1 bg-slate-900/80 backdrop-blur-md rounded-lg border border-slate-700">
+                        <p className="text-[8px] font-mono text-slate-400 tracking-tighter uppercase">{emp.pcName || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Add Modal */}
