@@ -328,7 +328,7 @@ app.patch('/api/admin/:id/extend-expiry', authenticate, async (req, res) => {
     
     user.expiryDate = new Date(newExpiry);
     await user.save();
-    res.json({ message: 'Expiry date updated', user });
+    res.json({ message: 'Expiry date updated successfully', user });
 });
 
 app.get('/api/auth/verify', authenticate, (req, res) => {
