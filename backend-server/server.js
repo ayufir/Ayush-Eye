@@ -24,10 +24,17 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(morgan('dev'));
 app.use(express.json());
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log('✅ Connected to MongoDB'))
-    .catch(err => console.error('MongoDB error:', err));
+// MongoDB Connection with Anti-Crash
+mongoose.connect(process.env.MONGODB_URI, {
+    bufferCommands: false, // Don't crash if DB is slow
+})
+    .then(() => {
+        console.log('✅ Connected to MongoDB');
+        seedSuperAdmin();
+    })
+    .catch(err => {
+        console.log('⚠️ Database connection failed, but server will continue running.');
+    });
 
 // ─── Database Models ──────────────────────────────────────────────────────────
 const userSchema = new mongoose.Schema({
@@ -70,7 +77,6 @@ const seedSuperAdmin = async () => {
         console.log('👤 Seeded Admin: ankit@gmail.com / admin123');
     }
 };
-seedSuperAdmin();
 
 // ─── Auth Middleware ──────────────────────────────────────────────────────────
 const authenticate = async (req, res, next) => {

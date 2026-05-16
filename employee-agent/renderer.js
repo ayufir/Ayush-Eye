@@ -32,14 +32,21 @@ const possiblePaths = [
 for (const p of possiblePaths) {
     try {
         if (fs.existsSync(p)) {
-            const fileConfig = JSON.parse(fs.readFileSync(p, 'utf8'));
-            // Filename ID takes precedence if present
-            config = { ...config, ...fileConfig, adminId: config.adminId || fileConfig.adminId };
-            console.log('✅ Loaded config from:', p);
+            const fileData = fs.readFileSync(p, 'utf8');
+            const fileConfig = JSON.parse(fileData);
+            
+            // Critical Fix: Merge properly
+            if (fileConfig.serverUrl) config.serverUrl = fileConfig.serverUrl;
+            if (fileConfig.adminId) config.adminId = fileConfig.adminId;
+            if (fileConfig.employeeName) config.employeeName = fileConfig.employeeName;
+
+            log('✅ Loaded Config from: ' + p, 'ok');
+            log('📡 Server: ' + config.serverUrl, 'warn');
+            log('🆔 Admin ID: ' + (config.adminId || 'MISSING'), 'warn');
             break; 
         }
     } catch (e) {
-        // Silently skip
+        // Skip invalid paths
     }
 }
 
