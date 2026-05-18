@@ -61,6 +61,8 @@ export default function MeetingRoom({ socket, employees = [], onClose }) {
         activeStream = stream;
         if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
+        const candidateQueues = {};
+
         // Register socket handlers only after stream is successfully acquired
         socket.on('participant_joined', async ({ participantId, name }) => {
           toast.success(`${name} joined the meeting`);
@@ -76,15 +78,40 @@ export default function MeetingRoom({ socket, employees = [], onClose }) {
           const pc = peers.current[from] || createPeerConnection(from);
           peers.current[from] = pc;
 
-          if (signal.type === 'offer') {
-            await pc.setRemoteDescription(new RTCSessionDescription(signal));
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            socket.emit('meeting_signal', { to: from, signal: answer });
-          } else if (signal.type === 'answer') {
-            await pc.setRemoteDescription(new RTCSessionDescription(signal));
-          } else if (signal.candidate) {
-            await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+          if (!candidateQueues[from]) {
+            candidateQueues[from] = [];
+          }
+
+          try {
+            if (signal.type === 'offer') {
+              await pc.setRemoteDescription(new RTCSessionDescription(signal));
+              const answer = await pc.createAnswer();
+              await pc.setLocalDescription(answer);
+              socket.emit('meeting_signal', { to: from, signal: answer });
+
+              // Flush queued candidates
+              while (candidateQueues[from].length > 0) {
+                const cand = candidateQueues[from].shift();
+                await pc.addIceCandidate(cand);
+              }
+            } else if (signal.type === 'answer') {
+              await pc.setRemoteDescription(new RTCSessionDescription(signal));
+
+              // Flush queued candidates
+              while (candidateQueues[from].length > 0) {
+                const cand = candidateQueues[from].shift();
+                await pc.addIceCandidate(cand);
+              }
+            } else if (signal.candidate) {
+              const candidate = new RTCIceCandidate(signal.candidate);
+              if (pc.remoteDescription && pc.remoteDescription.type) {
+                await pc.addIceCandidate(candidate);
+              } else {
+                candidateQueues[from].push(candidate);
+              }
+            }
+          } catch (err) {
+            console.error('Error handling meeting signal on Admin:', err);
           }
         });
 

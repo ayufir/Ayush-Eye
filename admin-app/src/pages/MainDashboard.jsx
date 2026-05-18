@@ -9,8 +9,12 @@ import MeetingRoom from '../components/MeetingRoom';
 import AdminLayout from '../layouts/AdminLayout';
 import { getToken, isExpired, logout, getUser } from '../utils/auth';
 
-// Connect to socket
-const socket = io('https://ayush-eye-1.onrender.com');
+// Connect to socket dynamically based on environment
+const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://localhost:5000'
+  : 'https://ayush-eye-1.onrender.com';
+
+const socket = io(BACKEND_URL);
 
 const MainDashboard = () => {
     const { employees, setEmployees, selectedEmployee, setSelectedEmployee } = useStore();

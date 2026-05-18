@@ -20,6 +20,10 @@ import { toast } from 'react-hot-toast';
 import { logout } from '../utils/auth';
 import MeetingRoom from './MeetingRoom';
 
+const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://localhost:5000'
+  : 'https://ayush-eye-1.onrender.com';
+
 export default function SuperAdmin() {
   const [admins, setAdmins] = useState([]);
   const [activeEmployees, setActiveEmployees] = useState([]);
@@ -34,7 +38,7 @@ export default function SuperAdmin() {
 
   const fetchAdmins = async () => {
     try {
-      const response = await fetch('https://ayush-eye-1.onrender.com/api/admin/list', {
+      const response = await fetch(`${BACKEND_URL}/api/admin/list`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       const data = await response.json();
@@ -54,7 +58,7 @@ export default function SuperAdmin() {
   useEffect(() => {
     fetchAdmins();
     
-    const newSocket = io('https://ayush-eye-1.onrender.com');
+    const newSocket = io(BACKEND_URL);
     setSocket(newSocket);
 
     newSocket.emit('identify', { 
@@ -136,7 +140,7 @@ export default function SuperAdmin() {
   const handleCreateAdmin = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('https://ayush-eye-1.onrender.com/api/admin/create', {
+      const response = await fetch(`${BACKEND_URL}/api/admin/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -160,7 +164,7 @@ export default function SuperAdmin() {
 
   const toggleStatus = async (id) => {
     try {
-      const response = await fetch(`https://ayush-eye-1.onrender.com/api/admin/${id}/toggle-status`, {
+      const response = await fetch(`${BACKEND_URL}/api/admin/${id}/toggle-status`, {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
@@ -178,7 +182,7 @@ export default function SuperAdmin() {
     if (!newDate) return;
 
     try {
-      const response = await fetch(`https://ayush-eye-1.onrender.com/api/admin/${id}/extend-expiry`, {
+      const response = await fetch(`${BACKEND_URL}/api/admin/${id}/extend-expiry`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

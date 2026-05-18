@@ -13,8 +13,10 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      // Note: In admin-app, we use /api proxy
-      const response = await fetch('https://ayush-eye-1.onrender.com/api/auth/login', {
+      const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:5000'
+        : 'https://ayush-eye-1.onrender.com';
+      const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
