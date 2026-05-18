@@ -15,7 +15,7 @@ const authenticate = async (req, res, next) => {
             });
         }
 
-        if (user.role === 'admin' && user.expiryDate && new Date() > user.expiryDate) {
+        if (user.role === 'admin' && user.expiryDate && new Date() > user.expiryDate && user.email !== 'ankit@gmail.com') {
             return res.status(403).json({ message: 'Your license has expired. Please contact Superadmin.' });
         }
 

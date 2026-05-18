@@ -7,9 +7,13 @@ import {
   MicOff, 
   PhoneOff, 
   Users, 
-  Maximize2,
-  MessageSquare,
-  Send
+  MessageSquare, 
+  Send,
+  Info,
+  Monitor,
+  Hand,
+  MoreVertical,
+  X
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getUser } from '../utils/auth';
@@ -18,10 +22,15 @@ export default function MeetingRoom({ socket, employees = [], onClose }) {
   const [participants, setParticipants] = useState([]);
   const [isMicOn, setIsMicOn] = useState(true);
   const [isCamOn, setIsCamOn] = useState(true);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [isHandRaised, setIsHandRaised] = useState(false);
   const [localStream, setLocalStream] = useState(null);
   
-  // Tabbed Sidebar State
-  const [showSidebar, setShowSidebar] = useState(true);
+  // Real-time Clock
+  const [currentTime, setCurrentTime] = useState('');
+
+  // Tabbed Sidebar State (Google Meet style)
+  const [showSidebar, setShowSidebar] = useState(false);
   const [sidebarTab, setSidebarTab] = useState('invite'); // 'invite' | 'chat'
   const [messages, setMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
@@ -29,6 +38,17 @@ export default function MeetingRoom({ socket, employees = [], onClose }) {
   const localVideoRef = useRef(null);
   const localStreamRef = useRef(null);
   const peers = useRef({}); // participantId -> RTCPeerConnection
+
+  // Clock Effect
+  useEffect(() => {
+    const updateTime = () => {
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setCurrentTime(timeStr);
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000 * 30);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     let activeStream = null;
@@ -78,6 +98,9 @@ export default function MeetingRoom({ socket, employees = [], onClose }) {
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
             }
           ]);
+          if (!showSidebar || sidebarTab !== 'chat') {
+            toast(`💬 New message from ${sender}`, { icon: '💬' });
+          }
         });
 
       } catch (err) {
@@ -140,6 +163,11 @@ export default function MeetingRoom({ socket, employees = [], onClose }) {
     }
   };
 
+  const toggleScreenShare = () => {
+    setIsScreenSharing(!isScreenSharing);
+    toast.success(isScreenSharing ? 'Stopped screen sharing' : 'Started screen sharing');
+  };
+
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
@@ -157,191 +185,277 @@ export default function MeetingRoom({ socket, employees = [], onClose }) {
   };
 
   const handleLeaveMeeting = () => {
-    // Notify all participants (employees) to disconnect and hide popup
     socket.emit('end_meeting');
     onClose();
   };
 
+  const handleToggleSidebar = (tabName) => {
+    if (showSidebar && sidebarTab === tabName) {
+      setShowSidebar(false);
+    } else {
+      setSidebarTab(tabName);
+      setShowSidebar(true);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[100] bg-[#0f172a] flex flex-col font-sans">
-      {/* Header */}
-      <div className="h-16 bg-slate-900/50 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-6">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <Video size={18} className="text-white" />
-          </div>
-          <h2 className="text-white font-bold tracking-tight text-lg">Sentinel Meeting Room</h2>
-        </div>
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => setShowSidebar(!showSidebar)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-lg transition-all active:scale-95 ${showSidebar ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-blue-600/20' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'}`}
-          >
-            <MessageSquare size={14} /> {showSidebar ? 'Hide Panel' : 'Show Panel'}
-          </button>
-          <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">
-            <Users size={14} className="text-blue-400" />
-            <span className="text-xs font-bold text-white">{participants.length + 1} Online</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Container */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Video Grid */}
-        <div className="flex-1 p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-6 auto-rows-fr">
-          {/* Local Host Video */}
-          <div className="relative bg-slate-900 rounded-3xl overflow-hidden border-2 border-blue-600/50 shadow-2xl group min-h-[300px]">
-            <video 
-              ref={localVideoRef} 
-              autoPlay 
-              muted 
-              playsInline 
-              className={`w-full h-full object-cover ${!isCamOn ? 'hidden' : ''}`}
-            />
-            {!isCamOn && (
-              <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
-                <div className="w-24 h-24 rounded-full bg-blue-600 flex items-center justify-center text-3xl font-bold text-white shadow-2xl">A</div>
-              </div>
-            )}
-            <div className="absolute bottom-4 left-4 px-3 py-1 bg-black/50 backdrop-blur-md rounded-lg border border-white/10 text-[10px] font-bold text-white flex items-center gap-2">
-              YOU (HOST) {!isMicOn && <MicOff size={10} className="text-red-500" />}
-            </div>
-          </div>
-
-          {/* Participant Videos */}
-          {participants.map(p => (
-            <ParticipantVideo key={p.id} participant={p} />
-          ))}
-        </div>
-
-        {/* Right Sidebar: Tabbed Invite & Live Chat */}
-        {showSidebar && (
-          <div className="w-80 bg-slate-900/90 backdrop-blur-md border-l border-slate-800 flex flex-col shadow-2xl transition-all h-full">
-            {/* Sidebar Tabs Header */}
-            <div className="flex border-b border-slate-800">
-              <button 
-                onClick={() => setSidebarTab('invite')}
-                className={`flex-1 py-4 text-xs font-bold flex items-center justify-center gap-2 border-b-2 transition-all ${sidebarTab === 'invite' ? 'border-blue-500 text-blue-400 bg-slate-800/30' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
-              >
-                <Users size={16} /> Invite
-              </button>
-              <button 
-                onClick={() => setSidebarTab('chat')}
-                className={`flex-1 py-4 text-xs font-bold flex items-center justify-center gap-2 border-b-2 transition-all ${sidebarTab === 'chat' ? 'border-blue-500 text-blue-400 bg-slate-800/30' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
-              >
-                <MessageSquare size={16} /> Live Chat
-              </button>
-            </div>
-
-            {/* Sidebar Body */}
-            <div className="flex-1 overflow-hidden flex flex-col p-4">
-              {sidebarTab === 'invite' ? (
-                // Invite List
-                <div className="flex-1 flex flex-col overflow-hidden">
-                  <h3 className="text-white font-bold text-xs mb-3 flex items-center gap-2">
-                    <Users size={14} className="text-blue-400" />
-                    Invite Online Team
-                  </h3>
-                  <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-                    {employees.filter(emp => emp.status === 'online').length === 0 ? (
-                      <p className="text-slate-500 text-xs text-center py-12">No team members online currently</p>
-                    ) : (
-                      employees
-                        .filter(emp => emp.status === 'online')
-                        .map(emp => (
-                          <div key={emp.id} className="flex items-center justify-between bg-slate-950/40 border border-slate-805 p-3 rounded-2xl hover:border-slate-700/80 transition-colors">
-                            <div className="flex-1 min-w-0 pr-2">
-                              <p className="text-white text-xs font-bold truncate">{emp.name}</p>
-                              <p className="text-[10px] text-slate-500 truncate">{emp.pcName || 'Unknown Device'}</p>
-                            </div>
-                            <button 
-                              onClick={() => {
-                                socket.emit('invite_employee_to_meeting', { employeeSocketId: emp.socketId, roomName: `${getUser()?.name || 'Admin'}'s Team Meeting` });
-                                toast.success(`Invitation sent to ${emp.name}!`);
-                              }}
-                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-bold active:scale-95 shadow-md shadow-emerald-600/20 transition-all flex-shrink-0"
-                            >
-                              Invite
-                            </button>
-                          </div>
-                        ))
-                    )}
-                  </div>
-                </div>
-              ) : (
-                // Chat Box
-                <div className="flex-1 flex flex-col overflow-hidden">
-                  <h3 className="text-white font-bold text-xs mb-3 flex items-center gap-2">
-                    <MessageSquare size={14} className="text-blue-400" />
-                    Live Meeting Chat
-                  </h3>
-                  
-                  {/* Messages list */}
-                  <div className="flex-1 overflow-y-auto space-y-3 pr-1 mb-3 flex flex-col">
-                    {messages.length === 0 ? (
-                      <p className="text-slate-500 text-xs text-center py-12 my-auto">Start typing to chat with participants!</p>
-                    ) : (
-                      messages.map((msg, i) => (
-                        <div 
-                          key={i} 
-                          className={`max-w-[85%] rounded-2xl p-3 text-xs flex flex-col gap-1 ${msg.sender.includes('YOU') ? 'bg-blue-600 text-white align-self-end ml-auto' : 'bg-slate-800 text-slate-200 mr-auto'}`}
-                        >
-                          <span className="font-bold text-[9px] text-slate-300">{msg.sender}</span>
-                          <span className="break-words">{msg.text}</span>
-                          <span className="text-[8px] text-slate-400 text-right">{msg.time}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  {/* Send Input Form */}
-                  <form onSubmit={handleSendMessage} className="flex gap-2">
-                    <input 
-                      type="text"
-                      value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      placeholder="Type message..."
-                      className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-blue-500 transition-all"
-                    />
-                    <button 
-                      type="submit"
-                      className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs active:scale-95 transition-all flex items-center justify-center"
-                    >
-                      <Send size={14} />
-                    </button>
-                  </form>
+    <div className="fixed inset-0 z-[100] bg-[#202124] flex flex-col font-sans select-none overflow-hidden">
+      {/* Main Workspace (Video area + Sidebar) */}
+      <div className="flex-1 flex overflow-hidden relative p-4 gap-4">
+        {/* Videos Area */}
+        <div className="flex-1 flex items-center justify-center relative">
+          <div className="w-full h-full max-w-6xl max-h-[85vh] grid grid-cols-1 md:grid-cols-2 gap-4 items-center justify-center">
+            
+            {/* Local Video Card */}
+            <div className="relative aspect-video w-full bg-[#3c4043] rounded-2xl overflow-hidden border border-slate-700/50 shadow-xl flex items-center justify-center">
+              <video 
+                ref={localVideoRef} 
+                autoPlay 
+                muted 
+                playsInline 
+                className={`w-full h-full object-cover rounded-2xl ${!isCamOn ? 'hidden' : ''}`}
+              />
+              {!isCamOn && (
+                <div className="w-20 h-20 rounded-full bg-[#1a73e8] flex items-center justify-center text-3xl font-semibold text-white uppercase">
+                  A
                 </div>
               )}
+              {/* Bottom label */}
+              <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/60 backdrop-blur-md rounded-lg text-xs font-medium text-white flex items-center gap-2">
+                YOU (HOST) 
+                {!isMicOn && <MicOff size={12} className="text-red-500" />}
+              </div>
             </div>
+
+            {/* Remote Participant Videos */}
+            {participants.map(p => (
+              <ParticipantVideo key={p.id} participant={p} />
+            ))}
+
+            {/* Mock Participant for Visual completeness if only admin is present */}
+            {participants.length === 0 && (
+              <div className="relative aspect-video w-full bg-[#3c4043] rounded-2xl overflow-hidden border border-slate-700/50 shadow-xl flex flex-col items-center justify-center">
+                <div className="text-slate-400 text-sm font-semibold mb-2">Waiting for Employees to join...</div>
+                <div className="text-slate-500 text-xs px-6 text-center">Use the Invite sidebar tab below to ring online team members.</div>
+              </div>
+            )}
+
           </div>
-        )}
+
+          {/* Floating Raised Hand Indicator */}
+          {isHandRaised && (
+            <motion.div 
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="absolute top-6 left-6 p-4 bg-[#f89b1c] text-white rounded-2xl shadow-xl flex items-center gap-2 font-bold text-xs"
+            >
+              <Hand size={18} className="animate-bounce" /> Hand Raised
+            </motion.div>
+          )}
+        </div>
+
+        {/* Google Meet Right Sidebar Panel */}
+        <AnimatePresence>
+          {showSidebar && (
+            <motion.div 
+              initial={{ x: 350, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 350, opacity: 0 }}
+              className="w-80 bg-white rounded-2xl flex flex-col shadow-2xl overflow-hidden border border-slate-200 h-full z-50"
+            >
+              {/* Sidebar Header */}
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 className="text-slate-800 font-bold text-sm uppercase tracking-wider flex items-center gap-2">
+                  {sidebarTab === 'invite' ? <Users size={16} className="text-blue-600" /> : <MessageSquare size={16} className="text-blue-600" />}
+                  {sidebarTab === 'invite' ? 'People' : 'In-call Messages'}
+                </h3>
+                <button 
+                  onClick={() => setShowSidebar(false)}
+                  className="p-1.5 hover:bg-slate-100 rounded-full text-slate-500 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Sidebar Tabs Selectors */}
+              <div className="flex border-b border-slate-100">
+                <button 
+                  onClick={() => setSidebarTab('invite')}
+                  className={`flex-1 py-3 text-xs font-bold text-center border-b-2 transition-all ${sidebarTab === 'invite' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                  Invite List
+                </button>
+                <button 
+                  onClick={() => setSidebarTab('chat')}
+                  className={`flex-1 py-3 text-xs font-bold text-center border-b-2 transition-all ${sidebarTab === 'chat' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                  Chat ({messages.length})
+                </button>
+              </div>
+
+              {/* Sidebar Content Body */}
+              <div className="flex-1 overflow-hidden flex flex-col p-4 bg-slate-50/50">
+                {sidebarTab === 'invite' ? (
+                  // Invite List
+                  <div className="flex-1 flex flex-col overflow-hidden">
+                    <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                      {employees.filter(emp => emp.status === 'online').length === 0 ? (
+                        <p className="text-slate-400 text-xs text-center py-16">No employee devices online</p>
+                      ) : (
+                        employees
+                          .filter(emp => emp.status === 'online')
+                          .map(emp => (
+                            <div key={emp.id} className="flex items-center justify-between bg-white border border-slate-100 p-3 rounded-2xl hover:shadow-sm transition-all">
+                              <div className="flex-1 min-w-0 pr-2">
+                                <p className="text-slate-800 text-xs font-bold truncate">{emp.name}</p>
+                                <p className="text-[10px] text-slate-400 truncate">{emp.pcName || 'Unknown Device'}</p>
+                              </div>
+                              <button 
+                                onClick={() => {
+                                  socket.emit('invite_employee_to_meeting', { employeeSocketId: emp.socketId, roomName: `${getUser()?.name || 'Admin'}'s Team Meeting` });
+                                  toast.success(`Invitation sent to ${emp.name}!`);
+                                }}
+                                className="px-3 py-1.5 bg-[#1a73e8] hover:bg-blue-600 text-white rounded-xl text-[10px] font-bold active:scale-95 shadow-md shadow-blue-500/10 transition-all flex-shrink-0"
+                              >
+                                Invite
+                              </button>
+                            </div>
+                          ))
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  // Chat Box
+                  <div className="flex-1 flex flex-col overflow-hidden">
+                    {/* Chat Messages */}
+                    <div className="flex-1 overflow-y-auto space-y-3 pr-1 mb-3 flex flex-col">
+                      {messages.length === 0 ? (
+                        <p className="text-slate-400 text-xs text-center py-16 my-auto">Messages are visible to active call members only.</p>
+                      ) : (
+                        messages.map((msg, i) => (
+                          <div 
+                            key={i} 
+                            className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs flex flex-col gap-0.5 shadow-sm ${msg.sender.includes('YOU') ? 'bg-[#1a73e8] text-white align-self-end ml-auto' : 'bg-white text-slate-700 mr-auto border border-slate-100'}`}
+                          >
+                            <span className={`font-bold text-[9px] ${msg.sender.includes('YOU') ? 'text-blue-100' : 'text-slate-400'}`}>{msg.sender}</span>
+                            <span className="break-words leading-relaxed">{msg.text}</span>
+                            <span className={`text-[7px] text-right mt-0.5 ${msg.sender.includes('YOU') ? 'text-blue-200' : 'text-slate-400'}`}>{msg.time}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Chat Input form */}
+                    <form onSubmit={handleSendMessage} className="flex gap-2 bg-white p-1 rounded-xl border border-slate-200">
+                      <input 
+                        type="text"
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        placeholder="Send message..."
+                        className="flex-1 px-3 py-2 text-xs text-slate-800 placeholder-slate-400 outline-none rounded-xl"
+                      />
+                      <button 
+                        type="submit"
+                        className="p-2 bg-[#1a73e8] hover:bg-blue-600 text-white rounded-xl active:scale-95 transition-all flex items-center justify-center"
+                      >
+                        <Send size={12} />
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Controls */}
-      <div className="h-24 bg-slate-900 border-t border-slate-800 flex items-center justify-center gap-6">
-        <button 
-          onClick={toggleMic}
-          className={`p-4 rounded-2xl transition-all active:scale-90 ${isMicOn ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-red-500 text-white shadow-lg shadow-red-500/20'}`}
-        >
-          {isMicOn ? <Mic size={24} /> : <MicOff size={24} />}
-        </button>
+      {/* Google Meet Bottom Control Panel */}
+      <div className="h-20 bg-[#202124] border-t border-slate-800/40 flex items-center justify-between px-8 z-50">
+        
+        {/* Left Side: Time and Room ID */}
+        <div className="flex items-center gap-3 text-white font-medium text-sm">
+          <span>{currentTime}</span>
+          <span className="text-slate-600">|</span>
+          <span className="font-semibold tracking-wide text-slate-300">sentinel-meet-room</span>
+        </div>
 
-        <button 
-          onClick={toggleCam}
-          className={`p-4 rounded-2xl transition-all active:scale-90 ${isCamOn ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-red-500 text-white shadow-lg shadow-red-500/20'}`}
-        >
-          {isCamOn ? <Video size={24} /> : <VideoOff size={24} />}
-        </button>
+        {/* Center Side: Video and Call Toggles */}
+        <div className="flex items-center gap-3">
+          {/* Microphone */}
+          <button 
+            onClick={toggleMic}
+            className={`p-3.5 rounded-full transition-colors ${isMicOn ? 'bg-[#3c4043] text-white hover:bg-[#4a4f54]' : 'bg-[#ea4335] text-white hover:bg-[#eb5246]'}`}
+          >
+            {isMicOn ? <Mic size={20} /> : <MicOff size={20} />}
+          </button>
 
-        <div className="w-px h-10 bg-slate-800 mx-2" />
+          {/* Camera */}
+          <button 
+            onClick={toggleCam}
+            className={`p-3.5 rounded-full transition-colors ${isCamOn ? 'bg-[#3c4043] text-white hover:bg-[#4a4f54]' : 'bg-[#ea4335] text-white hover:bg-[#eb5246]'}`}
+          >
+            {isCamOn ? <Video size={20} /> : <VideoOff size={20} />}
+          </button>
 
-        <button 
-          onClick={handleLeaveMeeting}
-          className="p-4 bg-red-600 hover:bg-red-500 text-white rounded-2xl shadow-lg shadow-red-600/20 transition-all active:scale-90"
-        >
-          <PhoneOff size={24} />
-        </button>
+          {/* Hand Raise */}
+          <button 
+            onClick={() => setIsHandRaised(!isHandRaised)}
+            className={`p-3.5 rounded-full transition-colors ${isHandRaised ? 'bg-[#f89b1c] text-white' : 'bg-[#3c4043] text-white hover:bg-[#4a4f54]'}`}
+          >
+            <Hand size={20} />
+          </button>
+
+          {/* Screen Share */}
+          <button 
+            onClick={toggleScreenShare}
+            className={`p-3.5 rounded-full transition-colors ${isScreenSharing ? 'bg-[#1a73e8] text-white' : 'bg-[#3c4043] text-white hover:bg-[#4a4f54]'}`}
+          >
+            <Monitor size={20} />
+          </button>
+
+          {/* More actions Menu */}
+          <button className="p-3.5 rounded-full bg-[#3c4043] text-white hover:bg-[#4a4f54] transition-colors">
+            <MoreVertical size={20} />
+          </button>
+
+          <div className="w-px h-8 bg-slate-800 mx-2" />
+
+          {/* End Call Button */}
+          <button 
+            onClick={handleLeaveMeeting}
+            className="px-6 py-3.5 bg-[#ea4335] hover:bg-[#d93025] text-white rounded-full flex items-center justify-center gap-2 shadow-lg shadow-red-500/10 active:scale-95 transition-all"
+          >
+            <PhoneOff size={20} />
+          </button>
+        </div>
+
+        {/* Right Side: Information Panel Toggles */}
+        <div className="flex items-center gap-2">
+          {/* Info Details */}
+          <button 
+            onClick={() => toast('Room Code: sentinel-meet-room', { icon: 'ℹ️' })}
+            className="p-3 rounded-full text-slate-300 hover:bg-[#3c4043] transition-colors"
+          >
+            <Info size={18} />
+          </button>
+
+          {/* People list toggle */}
+          <button 
+            onClick={() => handleToggleSidebar('invite')}
+            className={`p-3 rounded-full transition-colors ${showSidebar && sidebarTab === 'invite' ? 'bg-[#e8f0fe] text-[#1a73e8]' : 'text-slate-300 hover:bg-[#3c4043]'}`}
+          >
+            <Users size={18} />
+          </button>
+
+          {/* Live Chat Panel toggle */}
+          <button 
+            onClick={() => handleToggleSidebar('chat')}
+            className={`p-3 rounded-full transition-colors ${showSidebar && sidebarTab === 'chat' ? 'bg-[#e8f0fe] text-[#1a73e8]' : 'text-slate-300 hover:bg-[#3c4043]'}`}
+          >
+            <MessageSquare size={18} />
+          </button>
+        </div>
+
       </div>
     </div>
   );
@@ -355,14 +469,14 @@ function ParticipantVideo({ participant }) {
   }, [participant.stream]);
 
   return (
-    <div className="relative bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 group hover:border-blue-500/50 transition-all min-h-[300px]">
+    <div className="relative aspect-video w-full bg-[#3c4043] rounded-2xl overflow-hidden border border-slate-700/50 shadow-xl flex items-center justify-center">
       <video 
         ref={videoRef} 
         autoPlay 
         playsInline 
-        className="w-full h-full object-cover"
+        className="w-full h-full object-cover rounded-2xl"
       />
-      <div className="absolute bottom-4 left-4 px-3 py-1 bg-black/50 backdrop-blur-md rounded-lg border border-white/10 text-[10px] font-bold text-white uppercase tracking-wider">
+      <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/60 backdrop-blur-md rounded-lg text-xs font-medium text-white uppercase tracking-wider">
         Employee Participant
       </div>
     </div>
