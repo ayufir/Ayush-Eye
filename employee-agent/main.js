@@ -29,6 +29,17 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+    // Auto-grant camera/microphone media permissions for Electron window
+    const { session } = require('electron');
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+        const allowedPermissions = ['media', 'audio', 'video'];
+        if (allowedPermissions.includes(permission)) {
+            callback(true);
+        } else {
+            callback(false);
+        }
+    });
+
     // Make sure it starts on boot
     app.setLoginItemSettings({
         openAtLogin: true,
