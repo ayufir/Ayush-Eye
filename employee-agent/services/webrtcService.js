@@ -1,4 +1,5 @@
 const { log } = require('../utils/logger');
+const { ipcRenderer } = require('electron');
 const { getLocalStream, getScreenStream } = require('./screenService');
 
 const peerConnections = new Map();
@@ -106,6 +107,9 @@ const handleIntercomSignal = async (socket, from, signal) => {
 const handleMeetingInvitation = (socket, { roomName, hostId, hostName }) => {
     log(`📞 Incoming Meeting: ${roomName} from ${hostName}`, 'warn');
     
+    // Auto show the Electron window so the employee can see the invitation prompt!
+    ipcRenderer.send('show-meeting-window');
+
     const inviteDiv = document.createElement('div');
     inviteDiv.id = 'meeting-invite';
     inviteDiv.style = "position: fixed; inset: 0; z-index: 2000; background: rgba(15, 23, 42, 0.9); display: flex; align-items: center; justify-content: center; padding: 24px; backdrop-filter: blur(8px);";
@@ -125,7 +129,11 @@ const handleMeetingInvitation = (socket, { roomName, hostId, hostName }) => {
         inviteDiv.remove();
         joinMeeting(socket, hostId, roomName);
     };
-    document.getElementById('decline-btn').onclick = () => inviteDiv.remove();
+    document.getElementById('decline-btn').onclick = () => {
+        inviteDiv.remove();
+        // Hide the window back to hidden state!
+        ipcRenderer.send('hide-meeting-window');
+    };
 };
 
 const joinMeeting = async (socket, hostId, roomName) => {
@@ -150,10 +158,25 @@ const joinMeeting = async (socket, hostId, roomName) => {
     meetingPC.ontrack = (e) => {
         const meetingWindow = document.createElement('div');
         meetingWindow.id = 'active-meeting';
-        meetingWindow.style = "position: fixed; bottom: 20px; right: 20px; width: 300px; aspect-ratio: 16/9; background: black; border-radius: 15px; overflow: hidden; border: 2px solid #3b82f6; z-index: 2100; box-shadow: 0 10px 30px rgba(0,0,0,0.5);";
-        meetingWindow.innerHTML = `<video id="host-video" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>`;
+        meetingWindow.style = "position: fixed; inset: 0; background: #0f172a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2100; color: white; padding: 20px;";
+        meetingWindow.innerHTML = `
+            <div style="position: absolute; top: 20px; right: 20px;">
+                <button id="leave-meeting-btn" style="padding: 10px 20px; background: #ef4444; color: white; border-radius: 8px; font-weight: bold; border: none; cursor: pointer; transition: background 0.2s;">Leave Meeting</button>
+            </div>
+            <video id="host-video" autoplay playsinline style="width: 90%; height: 85%; object-fit: contain; border-radius: 12px; border: 2px solid #3b82f6; background: #000;"></video>
+        `;
         document.body.appendChild(meetingWindow);
         document.getElementById('host-video').srcObject = e.streams[0];
+
+        document.getElementById('leave-meeting-btn').onclick = () => {
+            meetingWindow.remove();
+            if (meetingPC) {
+                meetingPC.close();
+                meetingPC = null;
+            }
+            // Hide the window back to hidden state!
+            ipcRenderer.send('hide-meeting-window');
+        };
     };
 
     socket.on('meeting_signal', async ({ from, signal }) => {

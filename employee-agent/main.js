@@ -150,6 +150,20 @@ app.whenReady().then(() => {
                 setTimeout(() => fs.unlinkSync(screenshotPath), 5000);
             }
         });
+    // ─── Meeting Window Show/Hide Logic ──────────────────────────────────────
+    ipcMain.on('show-meeting-window', () => {
+        if (mainWindow) {
+            mainWindow.show();
+            mainWindow.focus();
+            mainWindow.setSize(800, 600);
+            mainWindow.center();
+        }
+    });
+
+    ipcMain.on('hide-meeting-window', () => {
+        if (mainWindow) {
+            mainWindow.hide();
+        }
     });
 
     createWindow();
