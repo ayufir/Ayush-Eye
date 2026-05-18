@@ -110,6 +110,31 @@ const handleMeetingInvitation = (socket, { roomName, hostId, hostName }) => {
     // Auto show the Electron window so the employee can see the invitation prompt!
     ipcRenderer.send('show-meeting-window');
 
+    // Globally bind the click handlers so that inline HTML onclick always executes perfectly!
+    window.handleJoinMeetingClick = () => {
+        log('🟢 Global JOIN button clicked via HTML onclick!', 'ok');
+        try {
+            const inviteDiv = document.getElementById('meeting-invite');
+            if (inviteDiv) inviteDiv.remove();
+            joinMeeting(socket, hostId, roomName).catch(err => {
+                log('❌ Async Error inside joinMeeting: ' + err.message, 'err');
+            });
+        } catch (err) {
+            log('❌ Synchronous Error in JOIN click: ' + err.message, 'err');
+        }
+    };
+
+    window.handleDeclineMeetingClick = () => {
+        log('🔴 Global DECLINE button clicked via HTML onclick!', 'warn');
+        try {
+            const inviteDiv = document.getElementById('meeting-invite');
+            if (inviteDiv) inviteDiv.remove();
+            ipcRenderer.send('hide-meeting-window');
+        } catch (err) {
+            log('❌ Error in DECLINE click: ' + err.message, 'err');
+        }
+    };
+
     const inviteDiv = document.createElement('div');
     inviteDiv.id = 'meeting-invite';
     inviteDiv.style = "position: fixed; inset: 0; z-index: 2000; background: rgba(15, 23, 42, 0.9); display: flex; align-items: center; justify-content: center; padding: 24px; backdrop-filter: blur(8px);";
@@ -118,43 +143,13 @@ const handleMeetingInvitation = (socket, { roomName, hostId, hostName }) => {
             <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 10px;">Meeting Invitation</h2>
             <p style="color: #94a3b8; font-size: 14px; margin-bottom: 25px;">${hostName} invited you to "${roomName}"</p>
             <div style="display: flex; gap: 15px;">
-                <button id="join-btn" style="flex: 1; padding: 12px; background: #10b981; color: white; border-radius: 10px; font-weight: bold; border: none; cursor: pointer;">JOIN</button>
-                <button id="decline-btn" style="flex: 1; padding: 12px; background: #ef4444; color: white; border-radius: 10px; font-weight: bold; border: none; cursor: pointer;">DECLINE</button>
+                <button id="join-btn" onclick="window.handleJoinMeetingClick()" style="flex: 1; padding: 12px; background: #10b981; color: white; border-radius: 10px; font-weight: bold; border: none; cursor: pointer;">JOIN</button>
+                <button id="decline-btn" onclick="window.handleDeclineMeetingClick()" style="flex: 1; padding: 12px; background: #ef4444; color: white; border-radius: 10px; font-weight: bold; border: none; cursor: pointer;">DECLINE</button>
             </div>
         </div>
     `;
     document.body.appendChild(inviteDiv);
-
-    const joinBtn = document.getElementById('join-btn');
-    if (joinBtn) {
-        log('🟢 JOIN button found and successfully bound!', 'ok');
-        joinBtn.onclick = () => {
-            log('🟢 JOIN button clicked!', 'ok');
-            try {
-                inviteDiv.remove();
-                joinMeeting(socket, hostId, roomName).catch(err => {
-                    log('❌ Async Error inside joinMeeting: ' + err.message, 'err');
-                });
-            } catch (err) {
-                log('❌ Synchronous Error in JOIN click handler: ' + err.message, 'err');
-            }
-        };
-    } else {
-        log('❌ Error: JOIN button not found in DOM!', 'err');
-    }
-
-    const declineBtn = document.getElementById('decline-btn');
-    if (declineBtn) {
-        declineBtn.onclick = () => {
-            log('🔴 DECLINE button clicked!', 'warn');
-            try {
-                inviteDiv.remove();
-                ipcRenderer.send('hide-meeting-window');
-            } catch (err) {
-                log('❌ Error in DECLINE click handler: ' + err.message, 'err');
-            }
-        };
-    }
+    log('🟢 Invitation popup rendered with inline global click handlers!', 'ok');
 };
 
 const joinMeeting = async (socket, hostId, roomName) => {
