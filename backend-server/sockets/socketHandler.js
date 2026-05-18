@@ -112,6 +112,11 @@ const socketHandler = (io) => {
             io.to(orgRoom).emit('meeting_invitation', { roomName, hostId: socket.id, hostName: 'Admin' });
         });
 
+        socket.on('invite_employee_to_meeting', ({ employeeSocketId, roomName }) => {
+            console.log(`📡 Direct Invitation: Admin invites employee ${employeeSocketId} to "${roomName}"`);
+            io.to(employeeSocketId).emit('meeting_invitation', { roomName, hostId: socket.id, hostName: 'Admin' });
+        });
+
         socket.on('join_meeting', ({ hostId, roomName }) => {
             console.log(`👤 Participant Joined: ${socket.id} joins meeting of ${hostId}`);
             io.to(hostId).emit('participant_joined', {

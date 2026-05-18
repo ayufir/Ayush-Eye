@@ -11,12 +11,14 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { getUser } from '../utils/auth';
 
-export default function MeetingRoom({ socket, onClose }) {
+export default function MeetingRoom({ socket, employees = [], onClose }) {
   const [participants, setParticipants] = useState([]);
   const [isMicOn, setIsMicOn] = useState(true);
   const [isCamOn, setIsCamOn] = useState(true);
   const [localStream, setLocalStream] = useState(null);
+  const [showInvitePanel, setShowInvitePanel] = useState(false);
   const localVideoRef = useRef(null);
   const localStreamRef = useRef(null);
   const peers = useRef({}); // participantId -> RTCPeerConnection
@@ -129,6 +131,12 @@ export default function MeetingRoom({ socket, onClose }) {
           <h2 className="text-white font-bold tracking-tight text-lg">Sentinel Meeting Room</h2>
         </div>
         <div className="flex items-center gap-4">
+          <button 
+            onClick={() => setShowInvitePanel(!showInvitePanel)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-lg transition-all active:scale-95 ${showInvitePanel ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-600/20' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'}`}
+          >
+            <Users size={14} /> {showInvitePanel ? 'Hide Invite List' : 'Invite Employee'}
+          </button>
           <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">
             <Users size={14} className="text-blue-400" />
             <span className="text-xs font-bold text-white">{participants.length + 1} Online</span>
@@ -136,31 +144,69 @@ export default function MeetingRoom({ socket, onClose }) {
         </div>
       </div>
 
-      {/* Video Grid */}
-      <div className="flex-1 p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
-        {/* Local Host Video */}
-        <div className="relative bg-slate-900 rounded-3xl overflow-hidden border-2 border-blue-600/50 shadow-2xl group">
-          <video 
-            ref={localVideoRef} 
-            autoPlay 
-            muted 
-            playsInline 
-            className={`w-full h-full object-cover ${!isCamOn ? 'hidden' : ''}`}
-          />
-          {!isCamOn && (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
-              <div className="w-24 h-24 rounded-full bg-blue-600 flex items-center justify-center text-3xl font-bold text-white shadow-2xl">A</div>
+      {/* Main Container */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Video Grid */}
+        <div className="flex-1 p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
+          {/* Local Host Video */}
+          <div className="relative bg-slate-900 rounded-3xl overflow-hidden border-2 border-blue-600/50 shadow-2xl group">
+            <video 
+              ref={localVideoRef} 
+              autoPlay 
+              muted 
+              playsInline 
+              className={`w-full h-full object-cover ${!isCamOn ? 'hidden' : ''}`}
+            />
+            {!isCamOn && (
+              <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
+                <div className="w-24 h-24 rounded-full bg-blue-600 flex items-center justify-center text-3xl font-bold text-white shadow-2xl">A</div>
+              </div>
+            )}
+            <div className="absolute bottom-4 left-4 px-3 py-1 bg-black/50 backdrop-blur-md rounded-lg border border-white/10 text-[10px] font-bold text-white flex items-center gap-2">
+              YOU (HOST) {!isMicOn && <MicOff size={10} className="text-red-500" />}
             </div>
-          )}
-          <div className="absolute bottom-4 left-4 px-3 py-1 bg-black/50 backdrop-blur-md rounded-lg border border-white/10 text-[10px] font-bold text-white flex items-center gap-2">
-            YOU (HOST) {!isMicOn && <MicOff size={10} className="text-red-500" />}
           </div>
+
+          {/* Participant Videos */}
+          {participants.map(p => (
+            <ParticipantVideo key={p.id} participant={p} />
+          ))}
         </div>
 
-        {/* Participant Videos */}
-        {participants.map(p => (
-          <ParticipantVideo key={p.id} participant={p} />
-        ))}
+        {/* Invite Sidebar Panel */}
+        {showInvitePanel && (
+          <div className="w-80 bg-[#1e293b]/40 backdrop-blur-md border-l border-slate-800/60 flex flex-col p-5 shadow-2xl transition-all">
+            <h3 className="text-white font-bold text-sm mb-4 pb-2 border-b border-slate-800/80 flex items-center gap-2">
+              <Users size={16} className="text-blue-400" />
+              Invite Online Team
+            </h3>
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              {employees.filter(emp => emp.status === 'online').length === 0 ? (
+                <p className="text-slate-500 text-xs text-center py-12">No team members online currently</p>
+              ) : (
+                employees
+                  .filter(emp => emp.status === 'online')
+                  .map(emp => (
+                    <div key={emp.id} className="flex items-center justify-between bg-slate-900/60 border border-slate-800/60 p-3.5 rounded-2xl hover:border-slate-700/80 transition-colors">
+                      <div className="flex-1 min-w-0 pr-2">
+                        <p className="text-white text-xs font-bold truncate">{emp.name}</p>
+                        <p className="text-[10px] text-slate-500 truncate">{emp.pcName || 'Unknown Device'}</p>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          socket.emit('invite_employee_to_meeting', { employeeSocketId: emp.socketId, roomName: `${getUser()?.name || 'Admin'}'s Team Meeting` });
+                          toast.success(`Invitation sent to ${emp.name}!`);
+                        }}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-bold active:scale-95 shadow-md shadow-emerald-600/20 transition-all flex-shrink-0"
+                      >
+                        Invite
+                      </button>
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Controls */}

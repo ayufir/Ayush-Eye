@@ -137,8 +137,7 @@ const handleMeetingInvitation = (socket, { roomName, hostId, hostName }) => {
 };
 
 const joinMeeting = async (socket, hostId, roomName) => {
-    log('🤝 Joining meeting...', 'ok');
-    socket.emit('join_meeting', { hostId, roomName });
+    log('🤝 Requesting local media devices...', 'ok');
 
     meetingPC = new RTCPeerConnection({
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
@@ -147,9 +146,13 @@ const joinMeeting = async (socket, hostId, roomName) => {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         stream.getTracks().forEach(track => meetingPC.addTrack(track, stream));
+        log('✅ Camera & Microphone successfully attached to call!', 'ok');
     } catch (err) {
-        log('❌ Failed to access camera for meeting', 'err');
+        log('❌ Failed to access camera/mic for meeting: ' + err.message, 'err');
     }
+
+    log('🤝 Emitting join_meeting to host...', 'ok');
+    socket.emit('join_meeting', { hostId, roomName });
 
     meetingPC.onicecandidate = (e) => {
         if (e.candidate) socket.emit('meeting_signal', { to: hostId, signal: { candidate: e.candidate } });

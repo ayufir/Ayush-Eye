@@ -94,6 +94,7 @@ const MainDashboard = () => {
             {showMeeting && (
                 <MeetingRoom 
                     socket={socket} 
+                    employees={employees}
                     onClose={() => setShowMeeting(false)} 
                 />
             )}
