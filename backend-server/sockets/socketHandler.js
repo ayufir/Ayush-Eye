@@ -129,6 +129,20 @@ const socketHandler = (io) => {
             io.to(to).emit('meeting_signal', { from: socket.id, signal });
         });
 
+        socket.on('send_meeting_chat', ({ text }) => {
+            const user = activeEmployees.get(socket.id) || { name: 'Admin', adminId: socket.adminId };
+            const orgRoom = `org_${socket.adminId || user.adminId}`;
+            console.log(`💬 Meeting Chat [${orgRoom}]: ${user.name}: ${text}`);
+            socket.to(orgRoom).emit('meeting_chat_message', { sender: user.name, text });
+        });
+
+        socket.on('end_meeting', () => {
+            const user = activeEmployees.get(socket.id) || { adminId: socket.adminId };
+            const orgRoom = `org_${socket.adminId || user.adminId}`;
+            console.log(`🛑 Meeting Ended in ${orgRoom}`);
+            socket.to(orgRoom).emit('meeting_ended');
+        });
+
         socket.on('disconnect', () => {
             if (activeEmployees.has(socket.id)) {
                 const emp = activeEmployees.get(socket.id);
