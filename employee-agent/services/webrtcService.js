@@ -278,6 +278,7 @@ const joinMeeting = async (socket, hostId, roomName) => {
             meetingWindow.remove();
             socket.off('meeting_chat_message');
             socket.off('meeting_ended');
+            socket.off('meeting_signal');
             if (meetingPC) {
                 meetingPC.close();
                 meetingPC = null;
@@ -303,6 +304,7 @@ const joinMeeting = async (socket, hostId, roomName) => {
             meetingWindow.remove();
             socket.off('meeting_chat_message');
             socket.off('meeting_ended');
+            socket.off('meeting_signal');
             if (meetingPC) {
                 meetingPC.close();
                 meetingPC = null;
