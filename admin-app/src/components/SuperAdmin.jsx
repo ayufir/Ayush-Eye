@@ -12,7 +12,8 @@ import {
   LogOut,
   ChevronRight,
   Monitor,
-  LayoutDashboard
+  LayoutDashboard,
+  Video
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { toast } from 'react-hot-toast';
