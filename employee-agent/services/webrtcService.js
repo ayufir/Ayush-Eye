@@ -125,15 +125,36 @@ const handleMeetingInvitation = (socket, { roomName, hostId, hostName }) => {
     `;
     document.body.appendChild(inviteDiv);
 
-    document.getElementById('join-btn').onclick = () => {
-        inviteDiv.remove();
-        joinMeeting(socket, hostId, roomName);
-    };
-    document.getElementById('decline-btn').onclick = () => {
-        inviteDiv.remove();
-        // Hide the window back to hidden state!
-        ipcRenderer.send('hide-meeting-window');
-    };
+    const joinBtn = document.getElementById('join-btn');
+    if (joinBtn) {
+        log('🟢 JOIN button found and successfully bound!', 'ok');
+        joinBtn.onclick = () => {
+            log('🟢 JOIN button clicked!', 'ok');
+            try {
+                inviteDiv.remove();
+                joinMeeting(socket, hostId, roomName).catch(err => {
+                    log('❌ Async Error inside joinMeeting: ' + err.message, 'err');
+                });
+            } catch (err) {
+                log('❌ Synchronous Error in JOIN click handler: ' + err.message, 'err');
+            }
+        };
+    } else {
+        log('❌ Error: JOIN button not found in DOM!', 'err');
+    }
+
+    const declineBtn = document.getElementById('decline-btn');
+    if (declineBtn) {
+        declineBtn.onclick = () => {
+            log('🔴 DECLINE button clicked!', 'warn');
+            try {
+                inviteDiv.remove();
+                ipcRenderer.send('hide-meeting-window');
+            } catch (err) {
+                log('❌ Error in DECLINE click handler: ' + err.message, 'err');
+            }
+        };
+    }
 };
 
 const joinMeeting = async (socket, hostId, roomName) => {

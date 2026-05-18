@@ -159,6 +159,7 @@ app.whenReady().then(() => {
             mainWindow.focus();
             mainWindow.setSize(800, 600);
             mainWindow.center();
+            mainWindow.webContents.openDevTools();
         }
     });
 
