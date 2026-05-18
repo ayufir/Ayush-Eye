@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { 
     LayoutDashboard, Users, Monitor, Image as ImageIcon, 
-    FileText, Settings, Bell, ShieldAlert, Activity, LogOut 
+    FileText, Settings, Bell, ShieldAlert, Activity, LogOut,
+    Video
 } from 'lucide-react';
 import { getUser, logout } from '../utils/auth';
 
-const AdminLayout = ({ children, activeTab, setActiveTab, employees, notifications, connectionStatus }) => {
+const AdminLayout = ({ children, activeTab, setActiveTab, employees, notifications, connectionStatus, onHostMeeting }) => {
     const user = getUser();
 
     const menuItems = [
@@ -92,6 +93,14 @@ const AdminLayout = ({ children, activeTab, setActiveTab, employees, notificatio
                         <p className="text-xs text-slate-500">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
                     </div>
                     <div className="flex items-center gap-3">
+                        {onHostMeeting && (
+                            <button 
+                                onClick={onHostMeeting}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-emerald-600/20 transition-all active:scale-95"
+                            >
+                                <Video size={14} /> Host Meeting
+                            </button>
+                        )}
                         <button className="relative p-2 hover:bg-slate-700/60 rounded-xl transition-colors">
                             <Bell size={18} className="text-slate-400" />
                             {notifications.length > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />}

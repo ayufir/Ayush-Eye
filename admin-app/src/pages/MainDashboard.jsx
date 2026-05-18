@@ -5,8 +5,9 @@ import useStore from '../store';
 import Dashboard from '../components/Dashboard';
 import LiveWall from '../components/LiveWall';
 import RemoteControl from '../components/RemoteControl';
+import MeetingRoom from '../components/MeetingRoom';
 import AdminLayout from '../layouts/AdminLayout';
-import { getToken, isExpired, logout } from '../utils/auth';
+import { getToken, isExpired, logout, getUser } from '../utils/auth';
 
 // Connect to socket
 const socket = io('https://ayush-eye-1.onrender.com');
@@ -16,6 +17,7 @@ const MainDashboard = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [notifications, setNotifications] = useState([]);
     const [connectionStatus, setConnectionStatus] = useState('connecting');
+    const [showMeeting, setShowMeeting] = useState(false);
 
     useEffect(() => {
         if (!getToken() || isExpired()) {
@@ -76,12 +78,23 @@ const MainDashboard = () => {
             employees={employees}
             notifications={notifications}
             connectionStatus={connectionStatus}
+            onHostMeeting={() => {
+                setShowMeeting(true);
+                socket.emit('start_meeting', { roomName: `${getUser()?.name || 'Admin'}'s Team Meeting` });
+            }}
         >
             {selectedEmployee && (
                 <RemoteControl
                     employee={selectedEmployee}
                     socket={socket}
                     onClose={() => setSelectedEmployee(null)}
+                />
+            )}
+
+            {showMeeting && (
+                <MeetingRoom 
+                    socket={socket} 
+                    onClose={() => setShowMeeting(false)} 
                 />
             )}
 
