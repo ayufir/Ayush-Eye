@@ -265,6 +265,25 @@ const RemoteControl = ({ employee, socket, onClose }) => {
         });
     };
 
+    const handleWheelAction = (e) => {
+        if (!isMouseActive || !videoRef.current) return;
+
+        // Prevent default scrolling behavior on the page
+        e.preventDefault();
+
+        const rect = videoRef.current.getBoundingClientRect();
+        
+        // Calculate scroll position relative to video dimensions (0 to 1 scale)
+        const x = (e.clientX - rect.left) / rect.width;
+        const y = (e.clientY - rect.top) / rect.height;
+
+        socket.emit('remote_control', {
+            to: employee.socketId,
+            action: 'scroll',
+            data: { x, y, deltaY: e.deltaY }
+        });
+    };
+
     return (
         <div className={`fixed inset-0 z-50 bg-black flex flex-col ${isFullscreen ? '' : ''}`}>
             {/* ─── Toolbar ─────────────────────────────────────────────────── */}
@@ -336,6 +355,7 @@ const RemoteControl = ({ employee, socket, onClose }) => {
                     style={{ display: videoStatus === 'live' ? 'block' : 'none' }}
                     onClick={(e) => handleScreenAction(e, 'click')}
                     onDoubleClick={(e) => handleScreenAction(e, 'double_click')}
+                    onWheel={(e) => handleWheelAction(e)}
                     onContextMenu={(e) => {
                         e.preventDefault();
                         handleScreenAction(e, 'right_click');

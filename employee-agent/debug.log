@@ -410,3 +410,129 @@
 3:36:00 PM — Capturing: Entire screen
 3:36:00 PM — ✅ Screen stream ready!
 3:36:00 PM — 📤 Registering: Sentinel-PC
+3:44:23 PM — No ID in filename. Using Default Admin ID: 6a08156c659055093275400a
+3:44:23 PM — ✅ Loaded Config from: ./config.json
+3:44:23 PM — 🚀 Sentinel Agent Started
+3:44:23 PM — 📡 Server: https://ayush-eye-1.onrender.com
+3:44:23 PM — 🆔 Admin ID: 6a06fa324239414a07c306ff
+3:44:25 PM — ✅ Connected to Sentinel server!
+3:44:25 PM — Capturing: Entire screen
+3:44:26 PM — ✅ Screen stream ready!
+3:44:26 PM — 📤 Registering: Sentinel-PC
+3:48:42 PM — 📞 Incoming Meeting: ankit sir's Team Meeting from Admin
+3:48:43 PM — 🟢 Invitation popup rendered with inline global click handlers!
+3:48:50 PM — 🟢 Global JOIN button clicked via HTML onclick!
+3:48:50 PM — 🤝 Requesting local media devices...
+3:48:52 PM — ⚠️ Camera & Mic combo failed: Device in use. Trying audio only...
+3:48:54 PM — ✅ Microphone successfully attached (no camera found)!
+3:48:54 PM — 🤝 Emitting join_meeting to host...
+3:48:55 PM — 📥 Received meeting offer from admin host
+3:48:55 PM — 🔊 Received remote media track from Admin Host
+3:48:55 PM — 📺 Bound remote stream to video element
+3:48:55 PM — 🔊 Received remote media track from Admin Host
+3:48:55 PM — 📤 Sent meeting answer to admin host
+3:49:16 PM — 📞 Incoming Meeting: ankit sir's Team Meeting from Admin
+3:49:16 PM — 🟢 Invitation popup rendered with inline global click handlers!
+3:49:18 PM — 🟢 Global JOIN button clicked via HTML onclick!
+3:49:18 PM — 🤝 Requesting local media devices...
+3:49:19 PM — ⚠️ Camera & Mic combo failed: Device in use. Trying audio only...
+3:49:19 PM — ✅ Microphone successfully attached (no camera found)!
+3:49:19 PM — 🤝 Emitting join_meeting to host...
+3:49:20 PM — 📥 Received meeting offer from admin host
+3:49:20 PM — 🔊 Received remote media track from Admin Host
+3:49:20 PM — 📺 Bound remote stream to video element
+3:49:20 PM — 🔊 Received remote media track from Admin Host
+3:49:21 PM — 📤 Sent meeting answer to admin host
+3:49:41 PM — 📡 Meeting was ended by Admin host.
+3:52:17 PM — ⚠️ Screen track ended. Recovering...
+3:52:19 PM — Capturing: Entire screen
+3:52:20 PM — ✅ Screen stream ready!
+3:53:31 PM — ❌ Disconnected from server
+3:53:38 PM — ✅ Connected to Sentinel server!
+3:53:38 PM — Capturing: Entire screen
+3:53:38 PM — ✅ Screen stream ready!
+3:53:38 PM — 📤 Registering: Sentinel-PC
+3:55:31 PM — No ID in filename. Using Default Admin ID: 6a08156c659055093275400a
+3:55:31 PM — ✅ Loaded Config from: ./config.json
+3:55:31 PM — 🚀 Sentinel Agent Started
+3:55:31 PM — 📡 Server: https://ayush-eye-1.onrender.com
+3:55:31 PM — 🆔 Admin ID: 6a06fa324239414a07c306ff
+3:55:32 PM — ✅ Connected to Sentinel server!
+3:55:33 PM — Capturing: Entire screen
+3:55:33 PM — ✅ Screen stream ready!
+3:55:33 PM — 📤 Registering: Sentinel-PC
+3:57:41 PM — 📺 Admin requesting screen view from: undefined
+3:57:41 PM — 📤 Sent screen offer to admin
+3:57:47 PM — 📞 Incoming Meeting: ankit sir's Team Meeting from Admin
+3:57:47 PM — 🟢 Invitation popup rendered with inline global click handlers!
+3:57:59 PM — 📞 Incoming Meeting: ankit sir's Team Meeting from Admin
+3:57:59 PM — ⚠️ Meeting invitation popup is already active. Ignoring duplicate event.
+3:58:11 PM — 🟢 Global JOIN button clicked via HTML onclick!
+3:58:11 PM — 🤝 Requesting local media devices...
+3:58:34 PM — ⚠️ Camera & Mic combo failed: Device in use. Trying audio only...
+3:58:42 PM — ✅ Microphone successfully attached (no camera found)!
+3:58:42 PM — 🤝 Emitting join_meeting to host...
+3:59:01 PM — 📥 Received meeting offer from admin host
+3:59:01 PM — 🔊 Received remote media track from Admin Host
+3:59:02 PM — 📺 Bound remote stream to video element
+3:59:02 PM — 🔊 Received remote media track from Admin Host
+3:59:03 PM — 📤 Sent meeting answer to admin host
+4:01:24 PM — 📺 Admin requesting screen view from: undefined
+4:01:24 PM — 📤 Sent screen offer to admin
+4:03:21 PM — 📺 Admin requesting screen view from: undefined
+4:03:21 PM — 📤 Sent screen offer to admin
+4:03:36 PM — 📺 Admin requesting screen view from: undefined
+4:03:36 PM — 📤 Sent screen offer to admin
+4:05:44 PM — 📞 Incoming Meeting: ankit sir's Team Meeting from Admin
+4:05:50 PM — 🟢 Invitation popup rendered with inline global click handlers!
+4:06:26 PM — 📡 Meeting was ended by Admin host.
+4:07:31 PM — 📺 Admin requesting screen view from: undefined
+4:07:32 PM — 📞 Incoming Meeting: ankit sir's Team Meeting from Admin
+4:07:34 PM — ⚠️ Meeting invitation popup is already active. Ignoring duplicate event.
+4:07:38 PM — 📤 Sent screen offer to admin
+4:14:07 PM — ❌ Disconnected from server
+4:15:05 PM — ✅ Connected to Sentinel server!
+4:15:06 PM — Capturing: Entire screen
+4:15:10 PM — ✅ Screen stream ready!
+4:15:10 PM — 📤 Registering: Sentinel-PC
+12:51:14 PM — No ID in filename. Using Default Admin ID: 6a08156c659055093275400a
+12:51:14 PM — ✅ Loaded Config from: ./config.json
+12:51:14 PM — 🚀 Sentinel Agent Started
+12:51:14 PM — 📡 Server: https://ayush-eye-1.onrender.com
+12:51:14 PM — 🆔 Admin ID: 6a06fa324239414a07c306ff
+12:51:16 PM — ✅ Connected to Sentinel server!
+12:51:17 PM — Capturing: Entire screen
+12:51:17 PM — ✅ Screen stream ready!
+12:51:17 PM — 📤 Registering: Sentinel-PC
+12:59:04 PM — No ID in filename. Using Default Admin ID: 6a08156c659055093275400a
+12:59:05 PM — ✅ Loaded Config from: ./config.json
+12:59:05 PM — 🚀 Sentinel Agent Started
+12:59:05 PM — 📡 Server: https://ayush-eye-1.onrender.com
+12:59:05 PM — 🆔 Admin ID: 6a06fa324239414a07c306ff
+12:59:06 PM — ✅ Connected to Sentinel server!
+12:59:07 PM — Capturing: Entire screen
+12:59:07 PM — ✅ Screen stream ready!
+12:59:07 PM — 📤 Registering: Sentinel-PC
+1:10:42 PM — No ID in filename. Using Default Admin ID: 6a08156c659055093275400a
+1:10:42 PM — ✅ Loaded Config from: ./config.json
+1:10:42 PM — 🚀 Sentinel Agent Started
+1:10:42 PM — 📡 Server: https://ayush-eye-1.onrender.com
+1:10:42 PM — 🆔 Admin ID: 6a06fa324239414a07c306ff
+1:10:45 PM — ✅ Connected to Sentinel server!
+1:10:49 PM — Capturing: Entire screen
+1:10:50 PM — ✅ Screen stream ready!
+1:10:50 PM — 📤 Registering: Sentinel-PC
+1:30:54 PM — ❌ Disconnected from server
+1:33:30 PM — ✅ Connected to Sentinel server!
+1:33:31 PM — Capturing: Entire screen
+1:33:31 PM — ✅ Screen stream ready!
+1:33:31 PM — 📤 Registering: Sentinel-PC
+1:39:24 PM — ❌ Disconnected from server
+1:58:17 PM — ⚠️ Screen track ended. Recovering...
+1:58:17 PM — ⚠️ Screen track ended. Recovering...
+1:58:20 PM — Capturing: Entire screen
+1:58:23 PM — ✅ Screen stream ready!
+1:59:06 PM — ✅ Connected to Sentinel server!
+1:59:20 PM — Capturing: Entire screen
+1:59:20 PM — ✅ Screen stream ready!
+1:59:20 PM — 📤 Registering: Sentinel-PC

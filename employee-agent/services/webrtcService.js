@@ -161,6 +161,15 @@ const handleMeetingInvitation = (socket, { roomName, hostId, hostName }) => {
 const joinMeeting = async (socket, hostId, roomName) => {
     log('🤝 Requesting local media devices...', 'ok');
 
+    // Clean up any previous meeting connection and listeners to prevent duplicates
+    if (meetingPC) {
+        meetingPC.close();
+        meetingPC = null;
+    }
+    socket.off('meeting_signal');
+    socket.off('meeting_ended');
+    socket.off('meeting_chat_message');
+
     meetingPC = new RTCPeerConnection({
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
     });
