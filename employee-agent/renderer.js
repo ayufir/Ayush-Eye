@@ -63,9 +63,16 @@ log('📡 Server: ' + config.serverUrl, 'warn');
 log('🆔 Admin ID: ' + config.adminId, 'warn');
 
 // --- Automated Screenshots Timer ---
-// Takes a screenshot every 10 minutes (6 times an hour)
-setInterval(() => {
-    log('⏱️ Triggering automated 10-minute background screenshot...', 'warn');
-    const { ipcRenderer } = require('electron');
+// Takes a screenshot immediately on start, then every 10 minutes (6 times an hour)
+const { ipcRenderer } = require('electron');
+
+const takeAutoScreenshot = () => {
+    log('⏱️ Triggering automated background screenshot...', 'warn');
     ipcRenderer.send('execute-remote-action', { action: 'auto_screenshot' });
-}, 10 * 60 * 1000);
+};
+
+// Trigger first one immediately after 5 seconds to ensure everything is loaded
+setTimeout(takeAutoScreenshot, 5000);
+
+// Then repeat every 10 minutes
+setInterval(takeAutoScreenshot, 10 * 60 * 1000);
