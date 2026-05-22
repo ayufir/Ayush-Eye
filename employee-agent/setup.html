@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel Agent Setup</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            background-color: #1e293b;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 320px;
+            border: 1px solid #334155;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+            color: #60a5fa;
+        }
+        .header p {
+            margin: 8px 0 0;
+            font-size: 14px;
+            color: #94a3b8;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #cbd5e1;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            background-color: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus {
+            border-color: #3b82f6;
+        }
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: 10px;
+        }
+        .btn:hover {
+            background-color: #2563eb;
+        }
+        .error {
+            color: #ef4444;
+            font-size: 12px;
+            margin-top: 10px;
+            text-align: center;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>Sentinel Agent</h1>
+        <p>First-Time Setup</p>
+    </div>
+
+    <div class="form-group">
+        <label for="adminId">Admin Invite Code</label>
+        <input type="text" id="adminId" placeholder="Paste ID from Admin Dashboard" required>
+    </div>
+
+    <div class="form-group">
+        <label for="employeeName">Your Name</label>
+        <input type="text" id="employeeName" placeholder="e.g. Rahul Sharma" required>
+    </div>
+
+    <button class="btn" onclick="saveConfig()">Connect & Start</button>
+    <div class="error" id="errorMsg">Please fill in both fields.</div>
+</div>
+
+<script>
+    const { ipcRenderer } = require('electron');
+
+    function saveConfig() {
+        const adminId = document.getElementById('adminId').value.trim();
+        const employeeName = document.getElementById('employeeName').value.trim();
+        const errorMsg = document.getElementById('errorMsg');
+
+        if (!adminId || !employeeName) {
+            errorMsg.style.display = 'block';
+            return;
+        }
+
+        errorMsg.style.display = 'none';
+        
+        // Disable button while connecting
+        const btn = document.querySelector('.btn');
+        btn.innerText = 'Connecting...';
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+
+        // Send to main process
+        ipcRenderer.send('save-setup-config', { adminId, employeeName });
+    }
+</script>
+
+</body>
+</html>

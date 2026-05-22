@@ -1,6 +1,7 @@
 const { app, BrowserWindow, desktopCapturer, ipcMain } = require('electron');
 const path = require('path');
 const os = require('os');
+const { loadConfig, saveConfig } = require('./services/configService');
 
 // Fix "Unable to move cache: Access denied" on Windows paths with spaces
 app.setPath('userData', path.join(os.tmpdir(), 'sentinel-agent'));
@@ -20,21 +21,41 @@ if (!gotTheLock) {
 let mainWindow;
 
 function createWindow() {
-    mainWindow = new BrowserWindow({
-        width: 400,
-        height: 250,
-        show: false, // HIDDEN IN BACKGROUND
-        skipTaskbar: true, // HIDE FROM TASKBAR
-        title: 'Sentinel Agent',
-        webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false,
-            webSecurity: false,
-            backgroundThrottling: false // Keep running fast in background
-        }
-    });
+    const config = loadConfig();
 
-    mainWindow.loadFile('index.html');
+    if (!config.adminId) {
+        // Show First-Time Setup Window
+        mainWindow = new BrowserWindow({
+            width: 400,
+            height: 450,
+            show: true, 
+            skipTaskbar: false, 
+            title: 'Sentinel Agent Setup',
+            autoHideMenuBar: true,
+            webPreferences: {
+                nodeIntegration: true,
+                contextIsolation: false
+            }
+        });
+        mainWindow.loadFile('setup.html');
+        mainWindow.center();
+    } else {
+        // Start normally in background
+        mainWindow = new BrowserWindow({
+            width: 400,
+            height: 250,
+            show: false, // HIDDEN IN BACKGROUND
+            skipTaskbar: true, // HIDE FROM TASKBAR
+            title: 'Sentinel Agent',
+            webPreferences: {
+                nodeIntegration: true,
+                contextIsolation: false,
+                webSecurity: false,
+                backgroundThrottling: false // Keep running fast in background
+            }
+        });
+        mainWindow.loadFile('index.html');
+    }
 }
 
 app.whenReady().then(() => {
@@ -161,6 +182,16 @@ app.whenReady().then(() => {
                     }
                 })
                 .catch(err => console.error('Error capturing auto screen:', err));
+        }
+    });
+
+    // ─── Setup UI Handler ───────────────────────────────────────────────────
+    ipcMain.on('save-setup-config', (event, data) => {
+        saveConfig(data);
+        if (mainWindow) {
+            mainWindow.hide();
+            mainWindow.setSkipTaskbar(true);
+            mainWindow.loadFile('index.html');
         }
     });
 

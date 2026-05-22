@@ -3,9 +3,10 @@ const fs = require('fs');
 const path = require('path');
 const { log } = require('../utils/logger');
 
-const DEFAULT_ADMIN_ID = "6a06fa324239414a07c306ff";
+// Persistent config path
+const persistentConfigPath = path.join(os.homedir(), '.sentinel-agent', 'config.json');
 
-const getAdminId = () => {
+const getAdminIdFromFilename = () => {
     try {
         const exePath = process.execPath;
         const fileName = path.basename(exePath);
@@ -18,24 +19,23 @@ const getAdminId = () => {
     } catch (err) {
         log(`Error reading filename: ${err.message}`);
     }
-    
-    log(`No ID in filename. Using Default Admin ID: ${DEFAULT_ADMIN_ID}`);
-    return DEFAULT_ADMIN_ID;
+    return null;
 };
 
 const loadConfig = () => {
     let config = {
         serverUrl: 'https://ayush-eye-1.onrender.com',
-        adminId: getAdminId(),
+        adminId: getAdminIdFromFilename(),
         employeeName: os.hostname()
     };
 
     const possiblePaths = [
+        persistentConfigPath,
         './config.json',
         path.join(process.cwd(), 'config.json'),
         path.join(__dirname, '..', 'config.json'),
-        path.join(process.resourcesPath, 'config.json'),
-        path.join(process.resourcesPath, '..', 'config.json')
+        path.join(process.resourcesPath || '', 'config.json'),
+        path.join(process.resourcesPath || '', '..', 'config.json')
     ];
 
     for (const p of possiblePaths) {
@@ -55,4 +55,23 @@ const loadConfig = () => {
     return config;
 };
 
-module.exports = { loadConfig };
+const saveConfig = (newConfig) => {
+    try {
+        const dir = path.dirname(persistentConfigPath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        
+        const currentConfig = loadConfig();
+        const mergedConfig = { ...currentConfig, ...newConfig };
+        
+        fs.writeFileSync(persistentConfigPath, JSON.stringify(mergedConfig, null, 2));
+        log(`✅ Saved persistent config to ${persistentConfigPath}`, 'ok');
+        return mergedConfig;
+    } catch (error) {
+        log(`❌ Failed to save config: ${error.message}`, 'error');
+        return null;
+    }
+};
+
+module.exports = { loadConfig, saveConfig };
