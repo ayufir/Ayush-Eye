@@ -11,7 +11,7 @@
     "appId": "com.sentinel.agent",
     "productName": "Windows System Service",
     "win": {
-      "target": "nsis",
+      "target": "portable",
       "icon": "build/icon.ico"
     },
     "files": [
