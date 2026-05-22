@@ -70,8 +70,8 @@ const MainDashboard = () => {
         socket.on('employee_joined', (employee) => {
             if (employee.adminId !== getUser()?.id) return; // safety check
             setEmployees(prev => {
-                const exists = prev.find(e => e.socketId === employee.socketId);
-                if (exists) return prev.map(e => e.socketId === employee.socketId ? employee : e);
+                const exists = prev.find(e => e.id === employee.id);
+                if (exists) return prev.map(e => e.id === employee.id ? employee : e);
                 return [...prev, employee];
             });
             setNotifications(prev => [{
