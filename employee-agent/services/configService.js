@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { log } = require('../utils/logger');
 
-const DEFAULT_ADMIN_ID = "6a08156c659055093275400a";
+const DEFAULT_ADMIN_ID = "6a06fa324239414a07c306ff";
 
 const getAdminId = () => {
     try {
