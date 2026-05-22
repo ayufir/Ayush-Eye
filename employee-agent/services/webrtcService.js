@@ -81,9 +81,10 @@ const handleIntercomSignal = async (socket, from, signal) => {
 
         intercomPc.ontrack = (e) => {
             log('🔊 Playing admin voice...', 'ok');
-            intercomAudio.srcObject = e.streams[0];
+            const stream = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
+            intercomAudio.srcObject = stream;
             intercomAudio.autoplay = true;
-            intercomAudio.play();
+            intercomAudio.play().catch(err => log('🔊 Autoplay error: ' + err.message, 'err'));
         };
 
         intercomPc.onicecandidate = (e) => {

@@ -29,13 +29,31 @@ const MainDashboard = () => {
             return;
         }
 
-        socket.on('connect', () => {
+        const fetchEmployees = async () => {
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/employees`);
+                const data = await res.json();
+                const myEmployees = data.filter(e => e.adminId === getUser()?.id);
+                setEmployees(myEmployees);
+            } catch (err) {
+                console.error('Fetch employees error:', err);
+            }
+        };
+
+        const identifyAdmin = () => {
             setConnectionStatus('connected');
             socket.emit('identify', { 
                 role: 'admin', 
                 token: getToken() 
             });
-        });
+            fetchEmployees(); // Fallback to HTTP fetch
+        };
+
+        if (socket.connected) {
+            identifyAdmin();
+        }
+
+        socket.on('connect', identifyAdmin);
 
         socket.on('auth_error', (data) => {
             toast.error(data.message);
@@ -49,6 +67,7 @@ const MainDashboard = () => {
         });
 
         socket.on('employee_joined', (employee) => {
+            if (employee.adminId !== getUser()?.id) return; // safety check
             setEmployees(prev => {
                 const exists = prev.find(e => e.socketId === employee.socketId);
                 if (exists) return prev.map(e => e.socketId === employee.socketId ? employee : e);

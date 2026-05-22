@@ -73,12 +73,27 @@ app.whenReady().then(() => {
         return sources.map(s => ({ id: s.id, name: s.name }));
     });
 
-    // ─── Consolidated Remote Action Handling (Mouse, Scroll, Keyboard, Screenshot) ─────────────────
+    // ─── Persistent PowerShell Process for Instant Remote Control ─────────────────
+    const { spawn, exec } = require('child_process');
+    
+    // Start a persistent PowerShell process to avoid recompiling C# on every click
+    const psProcess = spawn('powershell.exe', ['-NoProfile', '-Command', '-']);
+    
+    // Initialize the C# types once
+    const psInit = `
+        Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern void mouse_event(int dwFlags, int dx, int dy, int dwData, int dwExtraInfo); [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);' -Name User32 -Namespace Win32;
+        Add-Type -AssemblyName System.Windows.Forms;
+    `;
+    psProcess.stdin.write(psInit + '\n');
+    
+    psProcess.stderr.on('data', (data) => {
+        console.error('PowerShell Error:', data.toString());
+    });
+
     ipcMain.on('execute-remote-action', (event, payload) => {
         const { action, data } = payload || {};
-        const { exec } = require('child_process');
         
-        if (action === 'click' || action === 'right_click' || action === 'double_click' || action === 'scroll') {
+        if (action === 'mousemove' || action === 'click' || action === 'right_click' || action === 'double_click' || action === 'scroll') {
             if (!data) return;
             const { screen } = require('electron');
             const primaryDisplay = screen.getPrimaryDisplay();
@@ -87,11 +102,7 @@ app.whenReady().then(() => {
             const targetX = Math.floor(data.x * width);
             const targetY = Math.floor(data.y * height);
 
-            // PowerShell script to move and click/scroll mouse
-            let psCommand = `
-                Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern void mouse_event(int dwFlags, int dx, int dy, int dwData, int dwExtraInfo); [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);' -Name User32 -Namespace Win32;
-                [Win32.User32]::SetCursorPos(${targetX}, ${targetY});
-            `;
+            let psCommand = `[Win32.User32]::SetCursorPos(${targetX}, ${targetY});`;
 
             if (action === 'click') {
                 psCommand += `[Win32.User32]::mouse_event(0x0002, 0, 0, 0, 0); [Win32.User32]::mouse_event(0x0004, 0, 0, 0, 0);`;
@@ -100,49 +111,31 @@ app.whenReady().then(() => {
             } else if (action === 'double_click') {
                 psCommand += `[Win32.User32]::mouse_event(0x0002, 0, 0, 0, 0); [Win32.User32]::mouse_event(0x0004, 0, 0, 0, 0); [Win32.User32]::mouse_event(0x0002, 0, 0, 0, 0); [Win32.User32]::mouse_event(0x0004, 0, 0, 0, 0);`;
             } else if (action === 'scroll') {
-                // Invert and round deltaY. A positive deltaY in browser means scroll down, which maps to negative value in Windows API.
                 const scrollAmount = -Math.round(data.deltaY || 0);
                 if (scrollAmount !== 0) {
-                    // 0x0800 is MOUSEEVENTF_WHEEL
                     psCommand += `[Win32.User32]::mouse_event(0x0800, 0, 0, ${scrollAmount}, 0);`;
                 }
             }
 
-            exec(`powershell -Command "${psCommand.replace(/\n/g, '')}"`, (err) => {
-                if (err) console.error('❌ Mouse/Scroll Control Error:', err);
-            });
+            // Execute instantly
+            psProcess.stdin.write(psCommand + '\n');
         } 
         else if (action === 'key_press') {
             if (!data || !data.key) return;
             
             let key = data.key;
             if (key.length === 1) {
-                // Regular character: escape single quotes and double quotes for PowerShell SendKeys execution
-                if (key === "'") {
-                    key = "''";
-                } else if (key === '"') {
-                    key = '`"';
-                }
-                const psCommand = `(New-Object -ComObject WScript.Shell).SendKeys('${key}')`;
-                exec(`powershell -Command "${psCommand}"`);
+                if (key === "'") key = "''";
+                else if (key === '"') key = '`"';
+                psProcess.stdin.write(`[System.Windows.Forms.SendKeys]::SendWait('${key}');\n`);
             } else {
-                // Special keys (Enter, Backspace, etc.)
                 const keyMap = {
-                    'Enter': '{ENTER}',
-                    'Backspace': '{BACKSPACE}',
-                    'Tab': '{TAB}',
-                    'Escape': '{ESC}',
-                    'ArrowUp': '{UP}',
-                    'ArrowDown': '{DOWN}',
-                    'ArrowLeft': '{LEFT}',
-                    'ArrowRight': '{RIGHT}',
-                    'Delete': '{DEL}',
-                    'Home': '{HOME}',
-                    'End': '{END}'
+                    'Enter': '{ENTER}', 'Backspace': '{BACKSPACE}', 'Tab': '{TAB}', 'Escape': '{ESC}',
+                    'ArrowUp': '{UP}', 'ArrowDown': '{DOWN}', 'ArrowLeft': '{LEFT}', 'ArrowRight': '{RIGHT}',
+                    'Delete': '{DEL}', 'Home': '{HOME}', 'End': '{END}'
                 };
                 if (keyMap[key]) {
-                    const psCommand = `(New-Object -ComObject WScript.Shell).SendKeys('${keyMap[key]}')`;
-                    exec(`powershell -Command "${psCommand}"`);
+                    psProcess.stdin.write(`[System.Windows.Forms.SendKeys]::SendWait('${keyMap[key]}');\n`);
                 }
             }
         } 

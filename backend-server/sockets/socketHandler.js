@@ -5,10 +5,23 @@ const activeEmployees = new Map();  // socketId -> employee data
 const admins = new Set();           // admin socket IDs
 
 const socketHandler = (io) => {
+    // Debug helper: write activeEmployees to a file every 5 seconds
+    setInterval(() => {
+        require('fs').writeFileSync(
+            require('path').join(__dirname, '../debug_employees.json'), 
+            JSON.stringify({
+                activeEmployees: Array.from(activeEmployees.values()),
+                admins: Array.from(admins)
+            }, null, 2)
+        );
+    }, 5000);
+
     io.on('connection', (socket) => {
+        require('fs').appendFileSync(require('path').join(__dirname, '../admin_logs.txt'), `[${new Date().toISOString()}] Socket connected: ${socket.id} (IP: ${socket.handshake.address})\n`);
         console.log(`🔌 New Socket Connection: ${socket.id} (IP: ${socket.handshake.address})`);
 
         socket.on('identify', async (data) => {
+            require('fs').appendFileSync(require('path').join(__dirname, '../admin_logs.txt'), `[${new Date().toISOString()}] Identify call: ${socket.id} | Data: ${JSON.stringify(data)}\n`);
             console.log(`📡 [${socket.id}] Identify Data:`, JSON.stringify(data));
             const { role, adminId, token, name, employeeName } = data;
             
@@ -31,6 +44,7 @@ const socketHandler = (io) => {
                         const allEmployees = Array.from(activeEmployees.values());
                         socket.emit('initial_employee_list', allEmployees);
                         console.log(`👑 Superadmin Connected: ${user.email} (Global Mode)`);
+                        require('fs').appendFileSync(require('path').join(__dirname, '../admin_logs.txt'), `[${new Date().toISOString()}] Superadmin Connected: ${user.email} | ID: ${user._id}\n`);
                     } else {
                         const orgRoom = `org_${user._id.toString()}`;
                         socket.join(orgRoom);
@@ -38,10 +52,12 @@ const socketHandler = (io) => {
                             .filter(emp => emp.adminId === socket.adminId);
                         socket.emit('initial_employee_list', orgEmployees);
                         console.log(`🛡️ Admin Connected: ${user.email} (Room: ${orgRoom})`);
+                        require('fs').appendFileSync(require('path').join(__dirname, '../admin_logs.txt'), `[${new Date().toISOString()}] Admin Connected: ${user.email} | ID: ${user._id} | Found ${orgEmployees.length} employees\n`);
                     }
                 } catch (err) {
                     console.error('❌ Auth Error:', err.message);
                     socket.emit('auth_error', { message: 'Authentication failed' });
+                    require('fs').appendFileSync(require('path').join(__dirname, '../admin_logs.txt'), `[${new Date().toISOString()}] Auth Error: ${err.message}\n`);
                 }
             } else if (role === 'employee' || !role) {
                 const targetAdminId = adminId || data.adminId;
@@ -109,7 +125,19 @@ const socketHandler = (io) => {
             const admin = activeEmployees.get(socket.id) || { adminId: socket.adminId };
             const orgRoom = `org_${socket.adminId || admin.adminId}`;
             console.log(`📡 Meeting Started: ${roomName} in ${orgRoom}`);
+            
+            // Broadcast to the org room
             io.to(orgRoom).emit('meeting_invitation', { roomName, hostId: socket.id, hostName: 'Admin' });
+            
+            // If the user is a superadmin, also broadcast to all employees directly or via global_monitoring
+            // Since employees don't join global_monitoring, we must iterate or just let them use the sidebar.
+            // Wait, we can emit to all active employees that belong to this superadmin's view.
+            if (admins.has(socket.id) && socket.role === 'superadmin') {
+                for (const emp of activeEmployees.values()) {
+                    io.to(emp.socketId).emit('meeting_invitation', { roomName, hostId: socket.id, hostName: 'SuperAdmin' });
+                }
+                console.log(`📡 SuperAdmin Meeting Broadcasted to all online employees.`);
+            }
         });
 
         socket.on('invite_employee_to_meeting', ({ employeeSocketId, roomName }) => {

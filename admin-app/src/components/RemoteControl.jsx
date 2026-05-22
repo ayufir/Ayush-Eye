@@ -192,7 +192,8 @@ const RemoteControl = ({ employee, socket, onClose }) => {
             // Handle incoming employee mic
             pc.ontrack = (e) => {
                 console.log('🎙️ Received employee mic track');
-                intercomAudioRef.current.srcObject = e.streams[0];
+                const stream = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
+                intercomAudioRef.current.srcObject = stream;
                 intercomAudioRef.current.autoplay = true;
                 intercomAudioRef.current.play().catch(err => console.error('Audio play error:', err));
             };
@@ -249,38 +250,62 @@ const RemoteControl = ({ employee, socket, onClose }) => {
     };
 
     // ─── Remote Control Handlers ──────────────────────────────────────────────
-    const handleScreenAction = (e, type) => {
-        if (!isMouseActive || !videoRef.current) return;
-
-        const rect = videoRef.current.getBoundingClientRect();
+    const getMappedCoordinates = (e) => {
+        const video = videoRef.current;
+        if (!video) return null;
         
-        // Calculate click position relative to video dimensions (0 to 1 scale)
-        const x = (e.clientX - rect.left) / rect.width;
-        const y = (e.clientY - rect.top) / rect.height;
+        const rect = video.getBoundingClientRect();
+        if (!video.videoWidth || !video.videoHeight) return null;
+
+        const videoRatio = video.videoWidth / video.videoHeight;
+        const elementRatio = rect.width / rect.height;
+
+        let displayedWidth, displayedHeight, xOffset = 0, yOffset = 0;
+
+        if (videoRatio > elementRatio) {
+            // Video touches sides
+            displayedWidth = rect.width;
+            displayedHeight = rect.width / videoRatio;
+            yOffset = (rect.height - displayedHeight) / 2;
+        } else {
+            // Video touches top/bottom
+            displayedHeight = rect.height;
+            displayedWidth = rect.height * videoRatio;
+            xOffset = (rect.width - displayedWidth) / 2;
+        }
+
+        const clickX = e.clientX - rect.left - xOffset;
+        const clickY = e.clientY - rect.top - yOffset;
+
+        if (clickX < 0 || clickX > displayedWidth || clickY < 0 || clickY > displayedHeight) {
+            return null; // Clicked on black bars
+        }
+
+        return { x: clickX / displayedWidth, y: clickY / displayedHeight };
+    };
+
+    const handleScreenAction = (e, type) => {
+        if (!isMouseActive) return;
+        const coords = getMappedCoordinates(e);
+        if (!coords) return;
 
         socket.emit('remote_control', {
             to: employee.socketId,
             action: type,
-            data: { x, y, button: e.button === 2 ? 'right' : 'left' }
+            data: { x: coords.x, y: coords.y, button: e.button === 2 ? 'right' : 'left' }
         });
     };
 
     const handleWheelAction = (e) => {
-        if (!isMouseActive || !videoRef.current) return;
-
-        // Prevent default scrolling behavior on the page
+        if (!isMouseActive) return;
         e.preventDefault();
-
-        const rect = videoRef.current.getBoundingClientRect();
-        
-        // Calculate scroll position relative to video dimensions (0 to 1 scale)
-        const x = (e.clientX - rect.left) / rect.width;
-        const y = (e.clientY - rect.top) / rect.height;
+        const coords = getMappedCoordinates(e);
+        if (!coords) return;
 
         socket.emit('remote_control', {
             to: employee.socketId,
             action: 'scroll',
-            data: { x, y, deltaY: e.deltaY }
+            data: { x: coords.x, y: coords.y, deltaY: e.deltaY }
         });
     };
 
@@ -353,6 +378,7 @@ const RemoteControl = ({ employee, socket, onClose }) => {
                     playsInline
                     className={`max-w-full max-h-full object-contain ${isMouseActive ? 'cursor-crosshair' : ''}`}
                     style={{ display: videoStatus === 'live' ? 'block' : 'none' }}
+                    onMouseMove={(e) => handleScreenAction(e, 'mousemove')}
                     onClick={(e) => handleScreenAction(e, 'click')}
                     onDoubleClick={(e) => handleScreenAction(e, 'double_click')}
                     onWheel={(e) => handleWheelAction(e)}
