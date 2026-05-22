@@ -9,13 +9,14 @@ import MeetingRoom from '../components/MeetingRoom';
 import AdminLayout from '../layouts/AdminLayout';
 import { getToken, isExpired, logout, getUser } from '../utils/auth';
 
+import Screenshots from '../components/Screenshots';
+
 // Connect to socket dynamically based on environment
 const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://localhost:5000'
   : 'https://ayush-eye-1.onrender.com';
 
 const socket = io(BACKEND_URL);
-
 const MainDashboard = () => {
     const { employees, setEmployees, selectedEmployee, setSelectedEmployee } = useStore();
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -124,6 +125,7 @@ const MainDashboard = () => {
 
             {activeTab === 'dashboard' && <Dashboard />}
             {activeTab === 'monitoring' && <LiveWall socket={socket} />}
+            {activeTab === 'screenshots' && <Screenshots />}
             {/* Add more tab components as needed */}
         </AdminLayout>
     );

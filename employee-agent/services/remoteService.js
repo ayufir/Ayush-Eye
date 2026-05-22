@@ -15,6 +15,11 @@ const initRemoteControl = (socket) => {
         log('📸 Screenshot captured! Sending to admin...', 'ok');
         socket.emit('screenshot_result', { to: lastRequester, base64 });
     });
+
+    ipcRenderer.on('auto-screenshot-captured', (event, { base64 }) => {
+        log('📸 Auto-Screenshot captured! Saving to server...', 'warn');
+        socket.emit('auto_screenshot', { base64 });
+    });
 };
 
 module.exports = { initRemoteControl };

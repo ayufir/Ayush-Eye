@@ -106,6 +106,26 @@ const socketHandler = (io) => {
             io.to(to).emit('screenshot_result', { base64 });
         });
 
+        socket.on('auto_screenshot', async ({ base64 }) => {
+            const employee = activeEmployees.get(socket.id);
+            if (!employee || !employee.adminId) return;
+
+            try {
+                const Screenshot = require('../models/Screenshot');
+                const newScreenshot = new Screenshot({
+                    adminId: employee.adminId,
+                    employeeId: employee.id || socket.id,
+                    employeeName: employee.name,
+                    pcName: employee.pcName,
+                    image: base64
+                });
+                await newScreenshot.save();
+                console.log(`📸 Auto-Screenshot saved for ${employee.name}`);
+            } catch (error) {
+                console.error('Error saving auto screenshot:', error);
+            }
+        });
+
         socket.on('request_view', ({ employeeSocketId }) => {
             if (admins.has(socket.id) && activeEmployees.has(employeeSocketId)) {
                 io.to(employeeSocketId).emit('view_request', { adminId: socket.id });

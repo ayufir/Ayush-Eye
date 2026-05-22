@@ -171,6 +171,33 @@ app.whenReady().then(() => {
                 }
             });
         }
+        else if (action === 'auto_screenshot') {
+            const fs = require('fs');
+            const path = require('path');
+            const screenshotPath = path.join(app.getPath('userData'), `auto_ss_${Date.now()}.jpg`);
+            
+            const psCommand = `
+                Add-Type -AssemblyName System.Windows.Forms,System.Drawing;
+                $screen = [System.Windows.Forms.Screen]::PrimaryScreen;
+                $bitmap = New-Object System.Drawing.Bitmap($screen.Bounds.Width, $screen.Bounds.Height);
+                $graphics = [System.Drawing.Graphics]::FromImage($bitmap);
+                $graphics.CopyFromScreen($screen.Bounds.X, $screen.Bounds.Y, 0, 0, $bitmap.Size);
+                $encoderParams = New-Object System.Drawing.Imaging.EncoderParameters(1);
+                $encoderParams.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter([System.Drawing.Imaging.Encoder]::Quality, 40L);
+                $codec = [System.Drawing.Imaging.ImageCodecInfo]::GetImageDecoders() | Where-Object { $_.FormatID -eq [System.Drawing.Imaging.ImageFormat]::Jpeg.Guid };
+                $bitmap.Save('${screenshotPath}', $codec[0], $encoderParams);
+            `;
+
+            exec(`powershell -Command "${psCommand.replace(/\n/g, '')}"`, (err) => {
+                if (!err && fs.existsSync(screenshotPath)) {
+                    const base64 = 'data:image/jpeg;base64,' + fs.readFileSync(screenshotPath, { encoding: 'base64' });
+                    event.sender.send('auto-screenshot-captured', { base64 });
+                    setTimeout(() => {
+                        try { if (fs.existsSync(screenshotPath)) fs.unlinkSync(screenshotPath); } catch (e) {}
+                    }, 5000);
+                }
+            });
+        }
     });
 
     // ─── Meeting Window Show/Hide Logic ──────────────────────────────────────

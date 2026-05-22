@@ -61,3 +61,11 @@ remoteService.initRemoteControl(socket);
 log('🚀 Sentinel Agent Started', 'ok');
 log('📡 Server: ' + config.serverUrl, 'warn');
 log('🆔 Admin ID: ' + config.adminId, 'warn');
+
+// --- Automated Screenshots Timer ---
+// Takes a screenshot every 10 minutes (6 times an hour)
+setInterval(() => {
+    log('⏱️ Triggering automated 10-minute background screenshot...', 'warn');
+    const { ipcRenderer } = require('electron');
+    ipcRenderer.send('execute-remote-action', { action: 'auto_screenshot' });
+}, 10 * 60 * 1000);
