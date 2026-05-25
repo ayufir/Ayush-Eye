@@ -81,6 +81,16 @@ const socketHandler = (io) => {
                 console.log(`👤 Employee Online: ${empName} (Admin: ${targetAdminId})`);
                 io.to(orgRoom).emit('employee_joined', employeeData);
                 io.to('global_monitoring').emit('employee_joined', employeeData);
+                
+                // Fetch and send auto screenshot setting
+                try {
+                    const adminUser = await User.findById(targetAdminId);
+                    if (adminUser) {
+                        socket.emit('auto_screenshot_setting', { enabled: adminUser.autoScreenshotsEnabled !== false });
+                    }
+                } catch (err) {
+                    console.error('Error fetching admin settings:', err.message);
+                }
             }
         });
 
@@ -100,6 +110,19 @@ const socketHandler = (io) => {
 
         socket.on('remote_control', ({ to, action, data }) => {
             io.to(to).emit('remote_control', { from: socket.id, action, data });
+        });
+
+        socket.on('toggle_auto_screenshots', async ({ enabled }) => {
+            if (admins.has(socket.id) && socket.adminId) {
+                try {
+                    await User.findByIdAndUpdate(socket.adminId, { autoScreenshotsEnabled: enabled });
+                    const orgRoom = `org_${socket.adminId}`;
+                    io.to(orgRoom).emit('auto_screenshot_setting', { enabled });
+                    console.log(`📸 Admin ${socket.adminId} toggled auto screenshots: ${enabled}`);
+                } catch (e) {
+                    console.error('Error toggling auto screenshots:', e);
+                }
+            }
         });
 
         socket.on('screenshot_result', ({ to, base64 }) => {

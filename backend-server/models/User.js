@@ -7,6 +7,7 @@ const userSchema = new mongoose.Schema({
     role: { type: String, enum: ['superadmin', 'admin'], default: 'admin' },
     expiryDate: { type: Date, default: null }, 
     isActive: { type: Boolean, default: true },
+    autoScreenshotsEnabled: { type: Boolean, default: true },
     createdAt: { type: Date, default: Date.now }
 });
 

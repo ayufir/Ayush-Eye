@@ -19,7 +19,11 @@ const getScreenStream = async (retryCount = 0) => {
         log('Capturing: ' + primarySource.name, 'ok');
 
         const stream = await navigator.mediaDevices.getUserMedia({
-            audio: false,
+            audio: {
+                mandatory: {
+                    chromeMediaSource: 'desktop'
+                }
+            },
             video: {
                 mandatory: {
                     chromeMediaSource: 'desktop',

@@ -125,7 +125,7 @@ const MainDashboard = () => {
 
             {activeTab === 'dashboard' && <Dashboard />}
             {activeTab === 'monitoring' && <LiveWall socket={socket} />}
-            {activeTab === 'screenshots' && <Screenshots />}
+            {activeTab === 'screenshots' && <Screenshots socket={socket} />}
             {/* Add more tab components as needed */}
         </AdminLayout>
     );

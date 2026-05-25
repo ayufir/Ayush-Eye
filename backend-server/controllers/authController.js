@@ -22,12 +22,12 @@ exports.login = async (req, res) => {
         }
 
         const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
-        res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role, expiryDate: user.expiryDate } });
+        res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role, expiryDate: user.expiryDate, autoScreenshotsEnabled: user.autoScreenshotsEnabled } });
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
     }
 };
 
 exports.verify = (req, res) => {
-    res.json({ isActive: req.user.isActive, role: req.user.role });
+    res.json({ isActive: req.user.isActive, role: req.user.role, autoScreenshotsEnabled: req.user.autoScreenshotsEnabled });
 };

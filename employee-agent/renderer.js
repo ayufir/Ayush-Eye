@@ -63,16 +63,48 @@ log('📡 Server: ' + config.serverUrl, 'warn');
 log('🆔 Admin ID: ' + config.adminId, 'warn');
 
 // --- Automated Screenshots Timer ---
-// Takes a screenshot immediately on start, then every 10 minutes (6 times an hour)
 const { ipcRenderer } = require('electron');
 
+let autoScreenshotTimer = null;
+let isAutoScreenshotEnabled = true;
+
 const takeAutoScreenshot = () => {
+    if (!isAutoScreenshotEnabled) return;
     log('⏱️ Triggering automated background screenshot...', 'warn');
     ipcRenderer.send('execute-remote-action', { action: 'auto_screenshot' });
 };
 
-// Trigger first one immediately after 5 seconds to ensure everything is loaded
-setTimeout(takeAutoScreenshot, 5000);
+const startAutoScreenshotTimer = () => {
+    if (autoScreenshotTimer) clearInterval(autoScreenshotTimer);
+    autoScreenshotTimer = setInterval(takeAutoScreenshot, 10 * 60 * 1000);
+};
 
-// Then repeat every 10 minutes
-setInterval(takeAutoScreenshot, 10 * 60 * 1000);
+const stopAutoScreenshotTimer = () => {
+    if (autoScreenshotTimer) {
+        clearInterval(autoScreenshotTimer);
+        autoScreenshotTimer = null;
+    }
+};
+
+// Initial delay
+setTimeout(() => {
+    if (isAutoScreenshotEnabled) {
+        takeAutoScreenshot();
+        startAutoScreenshotTimer();
+    }
+}, 5000);
+
+// Handle server setting
+socket.on('auto_screenshot_setting', ({ enabled }) => {
+    const wasDisabled = !isAutoScreenshotEnabled;
+    isAutoScreenshotEnabled = enabled;
+    
+    if (enabled) {
+        log('📸 Auto-screenshots ENABLED by Admin', 'ok');
+        startAutoScreenshotTimer();
+        if (wasDisabled) takeAutoScreenshot();
+    } else {
+        log('🛑 Auto-screenshots DISABLED by Admin', 'warn');
+        stopAutoScreenshotTimer();
+    }
+});
