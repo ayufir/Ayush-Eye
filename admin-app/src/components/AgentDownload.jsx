@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
     Download, Copy, CheckCheck, Monitor, Shield, 
     AlertCircle, FolderOpen, Info,
-    Wifi, Key, User, Globe, Laptop, Github
+    Wifi, Key, User, Globe, Laptop
 } from 'lucide-react';
 import { getUser } from '../utils/auth';
 import { toast } from 'react-hot-toast';
