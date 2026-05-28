@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { 
     Download, Copy, CheckCheck, Monitor, Shield, 
-    AlertCircle, FolderOpen, Info,
-    Wifi, Key, User
+    AlertCircle, FolderOpen, Info, Link2, Save,
+    Wifi, Key, User, Globe, Laptop
 } from 'lucide-react';
 import { getUser } from '../utils/auth';
 import { toast } from 'react-hot-toast';
@@ -10,11 +10,19 @@ import { toast } from 'react-hot-toast';
 // Check if running in Electron (preload exposes window.electronAPI)
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI?.isElectron;
 
+// LocalStorage key for custom download URL
+const DOWNLOAD_URL_KEY = 'sentinel_agent_download_url';
+
 const AgentDownload = () => {
     const user = getUser();
     const adminId = user?.id || '';
     const [copied, setCopied] = useState(false);
     const [downloading, setDownloading] = useState(false);
+
+    // Custom download URL (for browser/Render version)
+    const [customUrl, setCustomUrl] = useState(() => localStorage.getItem(DOWNLOAD_URL_KEY) || '');
+    const [editingUrl, setEditingUrl] = useState(false);
+    const [urlDraft, setUrlDraft] = useState('');
 
     const handleCopyId = () => {
         navigator.clipboard.writeText(adminId);
@@ -23,17 +31,26 @@ const AgentDownload = () => {
         setTimeout(() => setCopied(false), 3000);
     };
 
-    // ─── Save dist.zip via Electron "Save As" dialog ──────────────────────────
-    const handleDownloadAgent = async () => {
-        if (!isElectron) {
-            toast.error('Ye feature sirf Electron app mein kaam karta hai.');
+    // ─── Save custom URL ──────────────────────────────────────────────────────
+    const handleSaveUrl = () => {
+        const url = urlDraft.trim();
+        if (!url) {
+            toast.error('Link paste karo pehle.');
             return;
         }
+        localStorage.setItem(DOWNLOAD_URL_KEY, url);
+        setCustomUrl(url);
+        setEditingUrl(false);
+        toast.success('✅ Download link save ho gaya!');
+    };
+
+    // ─── Electron: Save dist.zip via "Save As" dialog ────────────────────────
+    const handleElectronDownload = async () => {
         setDownloading(true);
         try {
             const result = await window.electronAPI.downloadAgentZip();
             if (result.success) {
-                toast.success('✅ SentinelAgent.zip save ho gaya! Ab employee ko bhejo.');
+                toast.success('✅ SentinelAgent.zip save ho gaya!');
             } else if (result.message !== 'Canceled') {
                 toast.error('Error: ' + result.message);
             }
@@ -44,12 +61,8 @@ const AgentDownload = () => {
         }
     };
 
-    // ─── Reveal dist.zip in Windows Explorer ─────────────────────────────────
+    // ─── Electron: Open folder in Explorer ───────────────────────────────────
     const handleOpenFolder = async () => {
-        if (!isElectron) {
-            toast.error('Ye feature sirf Electron app mein kaam karta hai.');
-            return;
-        }
         const result = await window.electronAPI.openAgentFolder();
         if (result.success) {
             toast.success('📂 Explorer mein dist.zip ka folder khul gaya!');
@@ -64,18 +77,17 @@ const AgentDownload = () => {
         blue:   'bg-blue-500/10 text-blue-400',
         violet: 'bg-violet-500/10 text-violet-400',
         emerald:'bg-emerald-500/10 text-emerald-400',
+        amber:  'bg-amber-500/10 text-amber-400',
     };
 
-    const steps = [
-        {
-            icon: Download,
-            color: 'blue',
-            title: 'Step 1: Agent Download Karo',
-            desc: 'Neeche diye button se SentinelAgent.zip apne Desktop ya kisi folder mein save karo.',
-            action: (
+    // ─── Step 1 UI: Different for Electron vs Browser ────────────────────────
+    const renderDownloadStep = () => {
+        if (isElectron) {
+            // Electron mode: direct file access
+            return (
                 <div className="flex flex-wrap gap-3 mt-2">
                     <button
-                        onClick={handleDownloadAgent}
+                        onClick={handleElectronDownload}
                         disabled={downloading}
                         className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white rounded-xl text-sm font-semibold shadow-lg shadow-blue-600/20 transition-all active:scale-95"
                     >
@@ -89,7 +101,77 @@ const AgentDownload = () => {
                         <FolderOpen size={16} /> Open in Explorer
                     </button>
                 </div>
-            )
+            );
+        }
+
+        // Browser/Render mode: use custom URL
+        return (
+            <div className="mt-3 space-y-3">
+                {/* Mode indicator */}
+                <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-800/50 px-3 py-2 rounded-lg border border-slate-700/50">
+                    <Globe size={13} className="text-blue-400" />
+                    <span>Browser mode — apna agent ZIP ka link yahan save karo, employees directly download kar sakenge</span>
+                </div>
+
+                {customUrl && !editingUrl ? (
+                    // URL is set — show download button + edit option
+                    <div className="flex flex-wrap items-center gap-3">
+                        <a
+                            href={customUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-blue-600/20 transition-all active:scale-95"
+                        >
+                            <Download size={16} /> Download Agent (.zip)
+                        </a>
+                        <button
+                            onClick={() => { setUrlDraft(customUrl); setEditingUrl(true); }}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-sm font-medium transition-all"
+                        >
+                            <Link2 size={14} /> Change Link
+                        </button>
+                    </div>
+                ) : (
+                    // No URL set or editing — show input
+                    <div className="space-y-2">
+                        <div className="flex gap-2">
+                            <input
+                                type="url"
+                                value={editingUrl ? urlDraft : ''}
+                                onChange={e => setUrlDraft(e.target.value)}
+                                placeholder="https://drive.google.com/... ya koi bhi download link"
+                                className="flex-1 px-4 py-2.5 bg-[#0f172a] border border-slate-600 focus:border-blue-500 rounded-xl text-slate-200 text-sm placeholder-slate-600 outline-none transition-colors"
+                                onFocus={() => { if (!editingUrl) { setEditingUrl(true); setUrlDraft(customUrl); }}}
+                            />
+                            <button
+                                onClick={handleSaveUrl}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition-all active:scale-95 flex-shrink-0"
+                            >
+                                <Save size={14} /> Save
+                            </button>
+                        </div>
+                        <div className="bg-[#0f172a] border border-slate-700 rounded-xl p-3 space-y-1.5 text-xs text-slate-400">
+                            <p className="font-semibold text-slate-300 mb-1">📌 dist.zip upload karne ke steps:</p>
+                            <p>1. <strong className="text-slate-200">Google Drive</strong> kholo → dist.zip upload karo</p>
+                            <p>2. File pe right-click → <strong className="text-slate-200">"Share"</strong> → <strong className="text-slate-200">"Anyone with the link"</strong></p>
+                            <p>3. Link copy karo aur upar input mein paste karo</p>
+                            <p className="text-emerald-400">✅ Employees us link se directly download kar sakenge</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const steps = [
+        {
+            icon: Download,
+            color: 'blue',
+            title: 'Step 1: Agent Download Karo',
+            desc: isElectron
+                ? 'Neeche diye button se SentinelAgent.zip apne Desktop ya kisi folder mein save karo.'
+                : 'Agent ZIP ka download link set karo taaki employees download kar sakein.',
+            action: renderDownloadStep()
         },
         {
             icon: Key,
@@ -156,6 +238,16 @@ const AgentDownload = () => {
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-3xl">
+
+            {/* Mode Badge */}
+            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold border ${
+                isElectron
+                    ? 'bg-blue-500/10 border-blue-500/20 text-blue-400'
+                    : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+            }`}>
+                {isElectron ? <Laptop size={14} /> : <Globe size={14} />}
+                {isElectron ? 'Electron App Mode — Direct file access available' : 'Browser Mode — Custom download link required'}
+            </div>
 
             {/* Header Card */}
             <div className="bg-[#1e293b] rounded-2xl border border-slate-700/50 p-6">
