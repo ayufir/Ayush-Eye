@@ -1,20 +1,32 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
+
+// Suppress security warnings in developer console
+process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
+
+// Disable HTTP cache to prevent ERR_CACHE_READ_FAILURE
+app.commandLine.appendSwitch('disable-http-cache');
 
 // Fix cache access errors on Windows paths with spaces
-app.setPath('userData', path.join(require('os').tmpdir(), 'sentinel-admin'));
+app.setPath('userData', path.join(os.tmpdir(), 'sentinel-admin'));
 
 // Allow audio to play automatically
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
+// Path to the employee agent dist.zip (relative to this file)
+const AGENT_ZIP_PATH = path.join(__dirname, '..', 'employee-agent', 'dist.zip');
 
 function createWindow() {
     const win = new BrowserWindow({
         width: 1440,
         height: 900,
         webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false,
-            webSecurity: false
+            nodeIntegration: false,
+            contextIsolation: true,
+            webSecurity: true,
+            preload: path.join(__dirname, 'preload.cjs')
         },
         titleBarStyle: 'hiddenInset'
     });
@@ -32,7 +44,41 @@ function createWindow() {
     }
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+    // ─── IPC: Reveal agent zip in Explorer ───────────────────────────────────
+    ipcMain.handle('open-agent-folder', () => {
+        if (fs.existsSync(AGENT_ZIP_PATH)) {
+            shell.showItemInFolder(AGENT_ZIP_PATH);
+            return { success: true, path: AGENT_ZIP_PATH };
+        }
+        return { success: false, message: 'dist.zip not found at: ' + AGENT_ZIP_PATH };
+    });
+
+    // ─── IPC: Save/Copy agent zip to chosen location ─────────────────────────
+    ipcMain.handle('download-agent-zip', async (event) => {
+        if (!fs.existsSync(AGENT_ZIP_PATH)) {
+            return { success: false, message: 'Agent zip not found. Please build it first.' };
+        }
+
+        const { filePath, canceled } = await dialog.showSaveDialog({
+            title: 'Save Sentinel Agent',
+            defaultPath: path.join(os.homedir(), 'Desktop', 'SentinelAgent.zip'),
+            filters: [{ name: 'Zip Archive', extensions: ['zip'] }]
+        });
+
+        if (canceled || !filePath) return { success: false, message: 'Canceled' };
+
+        try {
+            fs.copyFileSync(AGENT_ZIP_PATH, filePath);
+            shell.showItemInFolder(filePath);
+            return { success: true, path: filePath };
+        } catch (err) {
+            return { success: false, message: err.message };
+        }
+    });
+
+    createWindow();
+});
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();

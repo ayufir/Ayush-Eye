@@ -8,6 +8,8 @@ import RemoteControl from '../components/RemoteControl';
 import MeetingRoom from '../components/MeetingRoom';
 import AdminLayout from '../layouts/AdminLayout';
 import { getToken, isExpired, logout, getUser } from '../utils/auth';
+import EmployeesList from '../components/EmployeesList';
+import AgentDownload from '../components/AgentDownload';
 
 import Screenshots from '../components/Screenshots';
 
@@ -30,24 +32,12 @@ const MainDashboard = () => {
             return;
         }
 
-        const fetchEmployees = async () => {
-            try {
-                const res = await fetch(`${BACKEND_URL}/api/employees`);
-                const data = await res.json();
-                const myEmployees = data.filter(e => e.adminId === getUser()?.id);
-                setEmployees(myEmployees);
-            } catch (err) {
-                console.error('Fetch employees error:', err);
-            }
-        };
-
         const identifyAdmin = () => {
             setConnectionStatus('connected');
             socket.emit('identify', { 
                 role: 'admin', 
                 token: getToken() 
             });
-            fetchEmployees(); // Fallback to HTTP fetch
         };
 
         if (socket.connected) {
@@ -63,15 +53,21 @@ const MainDashboard = () => {
 
         socket.on('disconnect', () => setConnectionStatus('disconnected'));
 
+        // Socket se real-time employee list milti hai (includes socketId)
         socket.on('initial_employee_list', (list) => {
             setEmployees(list);
         });
 
         socket.on('employee_joined', (employee) => {
-            if (employee.adminId !== getUser()?.id) return; // safety check
+            if (employee.adminId !== getUser()?.id) return;
             setEmployees(prev => {
-                const exists = prev.find(e => e.id === employee.id);
-                if (exists) return prev.map(e => e.id === employee.id ? employee : e);
+                // Match by socketId (most reliable) or by id
+                const idx = prev.findIndex(e => e.socketId === employee.socketId || e.id === employee.id);
+                if (idx !== -1) {
+                    const updated = [...prev];
+                    updated[idx] = { ...prev[idx], ...employee };
+                    return updated;
+                }
                 return [...prev, employee];
             });
             setNotifications(prev => [{
@@ -85,6 +81,10 @@ const MainDashboard = () => {
             useStore.getState().updateEmployeeBySocket(socketId, { status });
         });
 
+        socket.on('employee_left', (socketId) => {
+            useStore.getState().updateEmployeeBySocket(socketId, { status: 'offline' });
+        });
+
         return () => {
             socket.off('connect');
             socket.off('auth_error');
@@ -92,6 +92,7 @@ const MainDashboard = () => {
             socket.off('initial_employee_list');
             socket.off('employee_joined');
             socket.off('employee_status_change');
+            socket.off('employee_left');
         };
     }, []);
 
@@ -123,10 +124,12 @@ const MainDashboard = () => {
                 />
             )}
 
-            {activeTab === 'dashboard' && <Dashboard />}
+            {activeTab === 'dashboard' && <Dashboard socket={socket} />}
+            {activeTab === 'employees' && <EmployeesList socket={socket} />}
             {activeTab === 'monitoring' && <LiveWall socket={socket} />}
             {activeTab === 'screenshots' && <Screenshots socket={socket} />}
-            {/* Add more tab components as needed */}
+            {activeTab === 'settings' && <AgentDownload />}
+            {/* logs tab can be added later */}
         </AdminLayout>
     );
 };

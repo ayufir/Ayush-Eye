@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const path = require('path');
+const fs = require('fs');
 
 const systemRoutes = (activeEmployees, admins) => {
     router.get('/health', (req, res) => {
@@ -13,6 +15,23 @@ const systemRoutes = (activeEmployees, admins) => {
 
     router.get('/employees', (req, res) => {
         res.json(Array.from(activeEmployees.values()));
+    });
+
+    // ─── Agent Download Route ─────────────────────────────────────────────────
+    // Employee agent ko download karne ke liye — admin dashboard se link hoga
+    router.get('/download-agent', (req, res) => {
+        // Check if a pre-built zip exists
+        const zipPath = path.join(__dirname, '../../employee-agent/dist.zip');
+        if (fs.existsSync(zipPath)) {
+            res.setHeader('Content-Disposition', 'attachment; filename="SentinelAgent.zip"');
+            res.setHeader('Content-Type', 'application/zip');
+            return res.sendFile(zipPath);
+        }
+        // If no zip, tell admin to build it
+        res.status(404).json({ 
+            message: 'Agent package not found. Please build the agent first: cd employee-agent && npm run package',
+            buildCommand: 'cd employee-agent && npm run package'
+        });
     });
 
     const Screenshot = require('../models/Screenshot');
@@ -44,3 +63,4 @@ const systemRoutes = (activeEmployees, admins) => {
 };
 
 module.exports = systemRoutes;
+
