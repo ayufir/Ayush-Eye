@@ -22,6 +22,18 @@ const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
     console.log('⚠️ Another Sentinel Agent instance is already running. Exiting.');
     app.quit();
+} else {
+    app.on('second-instance', (event, commandLine, workingDirectory) => {
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.setSkipTaskbar(false);
+            mainWindow.setSize(400, 450);
+            mainWindow.center();
+            mainWindow.show();
+            mainWindow.loadFile('setup.html');
+            mainWindow.focus();
+        }
+    });
 }
 
 let mainWindow;
