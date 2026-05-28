@@ -20,8 +20,8 @@ const systemRoutes = (activeEmployees, admins) => {
     // ─── Agent Download Route ─────────────────────────────────────────────────
     // Employee agent ko download karne ke liye — admin dashboard se link hoga
     router.get('/download-agent', (req, res) => {
-        // Check if a pre-built zip exists
-        const zipPath = path.join(__dirname, '../../employee-agent/dist.zip');
+        // Check if a pre-built zip exists in public
+        const zipPath = path.join(__dirname, '../public/SentinelAgent.zip');
         if (fs.existsSync(zipPath)) {
             res.setHeader('Content-Disposition', 'attachment; filename="SentinelAgent.zip"');
             res.setHeader('Content-Type', 'application/zip');

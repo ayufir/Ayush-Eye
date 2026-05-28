@@ -10,10 +10,14 @@ import { toast } from 'react-hot-toast';
 // Check if running in Electron
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI?.isElectron;
 
-// ─── Direct GitHub Release download URL ───────────────────────────────────────
-// Yeh URL GitHub Releases pe upload ki gayi SentinelAgent.zip ko point karta hai
-// After creating release: github.com/ayufir/Ayush-Eye/releases
-const AGENT_DOWNLOAD_URL = 'https://github.com/ayufir/Ayush-Eye/releases/download/v1.0.0/SentinelAgent.zip';
+// ─── Direct Live Backend Download URL ─────────────────────────────────────────
+// downloads directly from host backend URL (e.g. ayush-eye-1.onrender.com/SentinelAgent.zip)
+const getDownloadUrl = () => {
+    const backendUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:5000'
+        : 'https://ayush-eye-1.onrender.com';
+    return `${backendUrl}/SentinelAgent.zip`;
+};
 
 const AgentDownload = () => {
     const user = getUser();
@@ -79,22 +83,22 @@ const AgentDownload = () => {
             );
         }
 
-        // Browser / Render: direct GitHub Release download
+        // Browser / Render: direct download from backend
         return (
             <div className="mt-2 space-y-3">
                 <a
-                    href={AGENT_DOWNLOAD_URL}
+                    href={getDownloadUrl()}
                     download="SentinelAgent.zip"
                     className="inline-flex items-center gap-2.5 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/25 transition-all active:scale-95 hover:shadow-blue-500/30"
                     onClick={() => toast.success('⬇️ Download shuru ho raha hai...')}
                 >
                     <Download size={18} />
                     Download SentinelAgent.zip
-                    <span className="text-blue-200 text-xs font-normal ml-1">~317 MB</span>
+                    <span className="text-blue-200 text-xs font-normal ml-1">~79 MB</span>
                 </a>
                 <p className="text-slate-500 text-xs flex items-center gap-1.5">
-                    <Github size={12} />
-                    GitHub Releases se direct download — koi login nahi chahiye
+                    <Globe size={12} />
+                    Live Render server se direct download — koi login/drive link nahi chahiye
                 </p>
             </div>
         );
@@ -251,7 +255,7 @@ const AgentDownload = () => {
                 <div className="grid grid-cols-2 gap-3">
                     <div className="bg-[#0f172a] rounded-xl p-3">
                         <p className="text-slate-500 text-xs mb-1">Agent Download</p>
-                        <p className="text-blue-400 font-mono text-xs truncate">GitHub Releases v1.0.0</p>
+                        <p className="text-blue-400 font-mono text-xs truncate">Live Server (SentinelAgent.zip)</p>
                     </div>
                     <div className="bg-[#0f172a] rounded-xl p-3">
                         <p className="text-slate-500 text-xs mb-1">Admin Account</p>

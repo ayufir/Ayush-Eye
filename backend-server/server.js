@@ -12,6 +12,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const socketHandler = require('./sockets/socketHandler');
 
 const systemRoutes = require('./routes/systemRoutes');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
@@ -29,6 +30,7 @@ app.use(cors());
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(morgan('dev'));
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Socket.IO Setup
 const { activeEmployees, admins } = socketHandler(io);

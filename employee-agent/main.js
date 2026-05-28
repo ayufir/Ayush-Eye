@@ -3,6 +3,12 @@ const path = require('path');
 const os = require('os');
 const { loadConfig, saveConfig } = require('./services/configService');
 
+// Suppress security warnings in developer console
+process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
+
+// Disable HTTP cache to prevent ERR_CACHE_READ_FAILURE
+app.commandLine.appendSwitch('disable-http-cache');
+
 // Fix "Unable to move cache: Access denied" on Windows paths with spaces
 app.setPath('userData', path.join(os.tmpdir(), 'sentinel-agent'));
 
