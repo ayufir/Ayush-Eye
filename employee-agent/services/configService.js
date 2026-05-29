@@ -24,7 +24,7 @@ const getAdminIdFromFilename = () => {
 
 const loadConfig = () => {
     let config = {
-        serverUrl: 'https://ayush-eye-1.onrender.com',
+        serverUrl: 'https://ayush-eye-2-adminapp.onrender.com',
         adminId: getAdminIdFromFilename(),
         employeeName: os.hostname()
     };

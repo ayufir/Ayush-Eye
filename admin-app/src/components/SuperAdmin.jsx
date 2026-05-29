@@ -22,7 +22,7 @@ import MeetingRoom from './MeetingRoom';
 
 const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://localhost:5000'
-  : 'https://ayush-eye-1.onrender.com';
+  : 'https://ayush-eye-2-adminapp.onrender.com';
 
 export default function SuperAdmin() {
   const [admins, setAdmins] = useState([]);

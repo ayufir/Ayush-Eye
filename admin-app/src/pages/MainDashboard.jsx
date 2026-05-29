@@ -16,7 +16,7 @@ import Screenshots from '../components/Screenshots';
 // Connect to socket dynamically based on environment
 const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://localhost:5000'
-  : 'https://ayush-eye-1.onrender.com';
+  : 'https://ayush-eye-2-adminapp.onrender.com';
 
 const socket = io(BACKEND_URL);
 const MainDashboard = () => {
