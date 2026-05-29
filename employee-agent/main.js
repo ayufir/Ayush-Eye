@@ -36,7 +36,43 @@ if (!gotTheLock) {
     });
 }
 
+const fs = require('fs');
+
 let mainWindow;
+
+async function syncAgentFiles(serverUrl) {
+    try {
+        console.log('🔄 Checking for agent file updates from:', serverUrl);
+        const url = `${serverUrl}/api/agent-sync-files`;
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data && data.files) {
+            const userDataPath = app.getPath('userData');
+            console.log('📂 Syncing files to userData:', userDataPath);
+            
+            for (const [filePath, content] of Object.entries(data.files)) {
+                const fullPath = path.join(userDataPath, filePath);
+                const dir = path.dirname(fullPath);
+                
+                if (!fs.existsSync(dir)) {
+                    fs.mkdirSync(dir, { recursive: true });
+                }
+                
+                fs.writeFileSync(fullPath, content, 'utf8');
+                console.log(`✅ Synced: ${filePath}`);
+            }
+            return true;
+        }
+    } catch (err) {
+        console.error('❌ Failed to sync files from server:', err.message);
+    }
+    return false;
+}
 
 function createWindow() {
     const config = loadConfig();
@@ -72,13 +108,28 @@ function createWindow() {
                 backgroundThrottling: false // Keep running fast in background
             }
         });
-        mainWindow.loadFile('index.html');
+        
+        const userDataPath = app.getPath('userData');
+        const syncedIndexHtml = path.join(userDataPath, 'index.html');
+        if (fs.existsSync(syncedIndexHtml)) {
+            console.log('🚀 Loading synced index.html from:', syncedIndexHtml);
+            mainWindow.loadFile(syncedIndexHtml);
+        } else {
+            console.log('🚀 Loading local index.html');
+            mainWindow.loadFile('index.html');
+        }
     }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     // Auto-grant camera/microphone media permissions for Electron window
     const { session } = require('electron');
+
+    // Sync files from server first if configured
+    const config = loadConfig();
+    if (config.serverUrl) {
+        await syncAgentFiles(config.serverUrl);
+    }
 
     // Grant permission requests (for getUserMedia popups)
     session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {

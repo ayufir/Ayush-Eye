@@ -47,7 +47,7 @@ socket.on('disconnect', () => {
     setStatus('Disconnected — Reconnecting...', false);
 });
 
-socket.on('view_request', ({ from }) => webrtcService.handleViewRequest(socket, from));
+socket.on('view_request', (data) => webrtcService.handleViewRequest(socket, data.adminId || data.from));
 socket.on('rtc_signal', (data) => webrtcService.handleRtcSignal(data));
 socket.on('intercom_signal', ({ from, signal }) => webrtcService.handleIntercomSignal(socket, from, signal));
 socket.on('meeting_invitation', (data) => webrtcService.handleMeetingInvitation(socket, data));

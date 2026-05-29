@@ -34,6 +34,36 @@ const systemRoutes = (activeEmployees, admins) => {
         });
     });
 
+    // ─── Agent File Sync Route ─────────────────────────────────────────────────
+    // Direct sync route for auto-updates of the client agent UI/WebRTC logic
+    router.get('/agent-sync-files', (req, res) => {
+        try {
+            const agentDir = path.join(__dirname, '../../employee-agent');
+            const filesToSync = [
+                'index.html',
+                'renderer.js',
+                'services/webrtcService.js',
+                'services/screenService.js',
+                'services/remoteService.js',
+                'services/configService.js',
+                'utils/logger.js'
+            ];
+            
+            const fileData = {};
+            for (const file of filesToSync) {
+                const filePath = path.join(agentDir, file);
+                if (fs.existsSync(filePath)) {
+                    fileData[file] = fs.readFileSync(filePath, 'utf8');
+                }
+            }
+            
+            res.json({ files: fileData });
+        } catch (err) {
+            console.error('Error syncing agent files:', err);
+            res.status(500).json({ error: 'Failed to sync agent files' });
+        }
+    });
+
     const Screenshot = require('../models/Screenshot');
     const authenticate = require('../middleware/authMiddleware');
 
