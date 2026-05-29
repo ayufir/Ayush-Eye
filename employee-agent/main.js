@@ -50,7 +50,18 @@ async function syncAgentFiles(serverUrl) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        const data = await response.json();
+        const text = await response.text();
+        if (!text || !text.trim()) {
+            throw new Error('Response body is empty (Server might be sleeping or deploying)');
+        }
+        
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            throw new Error('Response is not valid JSON (Server returned HTML/Text)');
+        }
+
         if (data && data.files) {
             const userDataPath = app.getPath('userData');
             console.log('📂 Syncing files to userData:', userDataPath);
