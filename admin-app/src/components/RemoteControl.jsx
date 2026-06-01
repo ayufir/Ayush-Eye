@@ -117,7 +117,7 @@ const RemoteControl = ({ employee, socket, onClose }) => {
                             new RTCSessionDescription({ type: 'answer', sdp: signal.sdp })
                         );
 
-                    } else if (signal.type === 'candidate' && signal.candidate) {
+                    } else if (signal.candidate) {
                         await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
                     }
                 } catch (err) {
@@ -221,7 +221,7 @@ const RemoteControl = ({ employee, socket, onClose }) => {
                 
                 if (signal.type === 'answer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(signal));
-                } else if (signal.type === 'candidate' && signal.candidate) {
+                } else if (signal.candidate) {
                     await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
                 }
             };

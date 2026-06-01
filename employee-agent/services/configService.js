@@ -23,8 +23,20 @@ const getAdminIdFromFilename = () => {
 };
 
 const loadConfig = () => {
+    let isDev = false;
+    try {
+        const electron = require('electron');
+        if (electron.app) {
+            isDev = !electron.app.isPackaged;
+        } else {
+            isDev = process.execPath.toLowerCase().includes('electron.exe') || process.execPath.toLowerCase().includes('node_modules');
+        }
+    } catch (e) {
+        isDev = process.execPath.toLowerCase().includes('electron.exe') || process.execPath.toLowerCase().includes('node_modules');
+    }
+
     let config = {
-        serverUrl: 'https://ayush-eye-1.onrender.com',
+        serverUrl: isDev ? 'http://localhost:5000' : 'https://ayush-eye-1.onrender.com',
         adminId: getAdminIdFromFilename(),
         employeeName: os.hostname()
     };
@@ -43,7 +55,13 @@ const loadConfig = () => {
             if (fs.existsSync(p)) {
                 const fileData = fs.readFileSync(p, 'utf8');
                 const fileConfig = JSON.parse(fileData);
-                if (fileConfig.serverUrl) config.serverUrl = fileConfig.serverUrl;
+                if (fileConfig.serverUrl) {
+                    if (isDev && fileConfig.serverUrl === 'https://ayush-eye-1.onrender.com') {
+                        config.serverUrl = 'http://localhost:5000';
+                    } else {
+                        config.serverUrl = fileConfig.serverUrl;
+                    }
+                }
                 if (fileConfig.adminId) config.adminId = fileConfig.adminId;
                 if (fileConfig.employeeName) config.employeeName = fileConfig.employeeName;
                 log('✅ Loaded Config from: ' + p, 'ok');

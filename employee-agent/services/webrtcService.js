@@ -6,6 +6,7 @@ const peerConnections = new Map();
 let meetingPC = null;
 let intercomPc = null;
 const intercomAudio = new Audio();
+let isJoiningMeeting = false;
 
 const handleViewRequest = async (socket, from) => {
     log('📺 Admin requesting screen view from: ' + from, 'ok');
@@ -108,6 +109,11 @@ const handleIntercomSignal = async (socket, from, signal) => {
 const handleMeetingInvitation = (socket, { roomName, hostId, hostName }) => {
     log(`📞 Incoming Meeting: ${roomName} from ${hostName}`, 'warn');
 
+    if (meetingPC || isJoiningMeeting) {
+        log('⚠️ Already in a meeting or joining. Ignoring invitation.', 'warn');
+        return;
+    }
+
     // Avoid duplicate invitation popups!
     if (document.getElementById('meeting-invite')) {
         log('⚠️ Meeting invitation popup is already active. Ignoring duplicate event.', 'warn');
@@ -160,6 +166,8 @@ const handleMeetingInvitation = (socket, { roomName, hostId, hostName }) => {
 };
 
 const joinMeeting = async (socket, hostId, roomName) => {
+    if (isJoiningMeeting) return;
+    isJoiningMeeting = true;
     log('🤝 Requesting local media devices...', 'ok');
 
     // Clean up any previous meeting connection and listeners to prevent duplicates
@@ -1004,6 +1012,7 @@ const joinMeeting = async (socket, hostId, roomName) => {
             log('❌ Error in meeting signaling: ' + err.message, 'err');
         }
     });
+    isJoiningMeeting = false;
 };
 
 module.exports = { handleViewRequest, handleRtcSignal, handleIntercomSignal, handleMeetingInvitation };

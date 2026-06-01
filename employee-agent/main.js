@@ -119,10 +119,17 @@ function createWindow() {
                 backgroundThrottling: false // Keep running fast in background
             }
         });
+
+        // Safe fallback in case synced index.html fails to load
+        mainWindow.webContents.on('did-fail-load', () => {
+            console.log('⚠️ Failed to load synced file, falling back to local index.html');
+            mainWindow.loadFile('index.html');
+        });
         
+        const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
         const userDataPath = app.getPath('userData');
         const syncedIndexHtml = path.join(userDataPath, 'index.html');
-        if (fs.existsSync(syncedIndexHtml)) {
+        if (fs.existsSync(syncedIndexHtml) && !isDev) {
             console.log('🚀 Loading synced index.html from:', syncedIndexHtml);
             mainWindow.loadFile(syncedIndexHtml);
         } else {

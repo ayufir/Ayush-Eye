@@ -66,7 +66,7 @@ const ScreenCard = ({ employee, socket }) => {
                 });
             } else if (signal.type === 'answer') {
                 await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }));
-            } else if (signal.type === 'candidate') {
+            } else if (signal.candidate) {
                 try {
                     await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
                 } catch (e) {
