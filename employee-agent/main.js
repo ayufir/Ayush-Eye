@@ -1,4 +1,4 @@
-const { app, BrowserWindow, desktopCapturer, ipcMain } = require('electron');
+const { app, BrowserWindow, desktopCapturer, ipcMain, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const os = require('os');
 const { loadConfig, saveConfig } = require('./services/configService');
@@ -39,6 +39,7 @@ if (!gotTheLock) {
 const fs = require('fs');
 
 let mainWindow;
+let tray = null;
 
 async function syncAgentFiles(serverUrl) {
     try {
@@ -83,6 +84,54 @@ async function syncAgentFiles(serverUrl) {
         console.error('❌ Failed to sync files from server:', err.message);
     }
     return false;
+}
+
+
+function createTray() {
+    if (tray) return;
+    
+    // Transparent PNG base64 for tray icon (shield shape representation)
+    const iconBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAEKSURBVDhPY2AYBfQETExM/0GMR111//79/wPEXEDMBcScQAwDkMXgEsixEFkArhiuGBknkAVwxbjEsACuGKoYFqArxiWGBeikGBZgpRgWwKkYXoCRkeE/VAzGMAVwKXosgC9EkAVwKYIsgEsRpADYpYiyAC5FkAVwKYIsgEsRZAEhRZD/UDFUix4L4FMEmQ/VApKiwgIeHh7/oWIwFiqgGgvw8/P/h4rBGKiAihZQUVEBFiLEAjU1tQE6Bqohqthgx4oPqKio/IeKwVioAE2xAVtWVlb/oWIwFiqAUjHGKj6gpaX1HyoGY6ECKMUGbFmZgJqa2n+oGIyFCtAUG7BlZfIBNgoNAG8adp2y18yLAAAAAElFTkSuQmCC';
+    const image = nativeImage.createFromDataURL(iconBase64);
+    
+    tray = new Tray(image);
+    const contextMenu = Menu.buildFromTemplate([
+        { 
+            label: 'Show Setup / Status', 
+            click: () => {
+                if (mainWindow) {
+                    mainWindow.setSkipTaskbar(false);
+                    mainWindow.setSize(400, 450);
+                    mainWindow.center();
+                    mainWindow.show();
+                    mainWindow.loadFile('setup.html');
+                    mainWindow.focus();
+                }
+            } 
+        },
+        { type: 'separator' },
+        { 
+            label: 'Exit', 
+            click: () => {
+                app.isQuiting = true;
+                app.quit();
+            } 
+        }
+    ]);
+    
+    tray.setToolTip('Sentinel Agent');
+    tray.setContextMenu(contextMenu);
+    
+    tray.on('double-click', () => {
+        if (mainWindow) {
+            mainWindow.setSkipTaskbar(false);
+            mainWindow.setSize(400, 450);
+            mainWindow.center();
+            mainWindow.show();
+            mainWindow.loadFile('setup.html');
+            mainWindow.focus();
+        }
+    });
 }
 
 function createWindow() {
@@ -137,6 +186,16 @@ function createWindow() {
             mainWindow.loadFile('index.html');
         }
     }
+
+    // Intercept close event to hide instead of close if configured
+    mainWindow.on('close', (event) => {
+        const currentConfig = loadConfig();
+        if (currentConfig.adminId && !app.isQuiting) {
+            event.preventDefault();
+            mainWindow.hide();
+            mainWindow.setSkipTaskbar(true);
+        }
+    });
 }
 
 app.whenReady().then(async () => {
@@ -311,6 +370,7 @@ app.whenReady().then(async () => {
     });
 
     createWindow();
+    createTray();
 });
 
 app.on('window-all-closed', () => {
