@@ -207,6 +207,22 @@ const socketHandler = (io) => {
             socket.to(orgRoom).emit('meeting_chat_message', { sender: user.name, text });
         });
 
+        socket.on('employee_request_meeting', () => {
+            const employee = activeEmployees.get(socket.id);
+            if (!employee || !employee.adminId) return;
+            const orgRoom = `org_${employee.adminId}`;
+            console.log(`📞 Employee requesting meeting: ${employee.name} (Socket: ${socket.id})`);
+            socket.to(orgRoom).emit('employee_meeting_requested', {
+                employeeSocketId: socket.id,
+                employeeName: employee.name
+            });
+        });
+
+        socket.on('decline_meeting_request', ({ to }) => {
+            console.log(`❌ Admin declined meeting request for employee: ${to}`);
+            io.to(to).emit('meeting_declined');
+        });
+
         socket.on('end_meeting', () => {
             const user = activeEmployees.get(socket.id) || { adminId: socket.adminId };
             const orgRoom = `org_${socket.adminId || user.adminId}`;

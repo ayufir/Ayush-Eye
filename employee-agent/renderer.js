@@ -1,5 +1,6 @@
 const io = require('socket.io-client');
 const os = require('os');
+const { ipcRenderer } = require('electron');
 const { log, setStatus } = require('./utils/logger');
 const { loadConfig } = require('./services/configService');
 const { getScreenStream } = require('./services/screenService');
@@ -47,10 +48,41 @@ socket.on('disconnect', () => {
     setStatus('Disconnected — Reconnecting...', false);
 });
 
+let isWaitingForAdminCall = false;
+
+ipcRenderer.on('call-admin', () => {
+    const currentConfig = loadConfig();
+    if (!currentConfig.adminId) {
+        log('❌ Cannot call Admin: Invite Code is missing! Update setup first.', 'err');
+        setStatus('Error: Missing Admin ID', false);
+        return;
+    }
+    log('📞 Calling Admin...', 'warn');
+    setStatus('Calling Admin...', false);
+    isWaitingForAdminCall = true;
+    socket.emit('employee_request_meeting');
+});
+
 socket.on('view_request', (data) => webrtcService.handleViewRequest(socket, data.adminId || data.from));
 socket.on('rtc_signal', (data) => webrtcService.handleRtcSignal(data));
 socket.on('intercom_signal', ({ from, signal }) => webrtcService.handleIntercomSignal(socket, from, signal));
-socket.on('meeting_invitation', (data) => webrtcService.handleMeetingInvitation(socket, data));
+
+socket.on('meeting_invitation', (data) => {
+    if (isWaitingForAdminCall) {
+        log('🤝 Admin accepted call, joining meeting automatically...', 'ok');
+        setStatus('Joined Meeting', true);
+        isWaitingForAdminCall = false;
+        webrtcService.joinMeeting(socket, data.hostId, data.roomName);
+    } else {
+        webrtcService.handleMeetingInvitation(socket, data);
+    }
+});
+
+socket.on('meeting_declined', () => {
+    log('❌ Admin declined the meeting request.', 'err');
+    setStatus('Call Declined', false);
+    isWaitingForAdminCall = false;
+});
 
 // Backward compatibility
 socket.on('signal', (data) => webrtcService.handleRtcSignal({ from: data.from || data.target, signal: data }));
@@ -63,8 +95,6 @@ log('📡 Server: ' + config.serverUrl, 'warn');
 log('🆔 Admin ID: ' + config.adminId, 'warn');
 
 // --- Automated Screenshots Timer ---
-const { ipcRenderer } = require('electron');
-
 let autoScreenshotTimer = null;
 let isAutoScreenshotEnabled = true;
 

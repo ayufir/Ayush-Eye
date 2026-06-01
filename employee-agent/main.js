@@ -109,6 +109,19 @@ function createTray() {
                 }
             } 
         },
+        { 
+            label: 'Call Admin / Host Meeting', 
+            click: () => {
+                if (mainWindow) {
+                    mainWindow.setSkipTaskbar(false);
+                    mainWindow.setSize(400, 250);
+                    mainWindow.center();
+                    mainWindow.show();
+                    mainWindow.focus();
+                    mainWindow.webContents.send('call-admin');
+                }
+            } 
+        },
         { type: 'separator' },
         { 
             label: 'Exit', 

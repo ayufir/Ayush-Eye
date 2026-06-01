@@ -1015,4 +1015,4 @@ const joinMeeting = async (socket, hostId, roomName) => {
     isJoiningMeeting = false;
 };
 
-module.exports = { handleViewRequest, handleRtcSignal, handleIntercomSignal, handleMeetingInvitation };
+module.exports = { handleViewRequest, handleRtcSignal, handleIntercomSignal, handleMeetingInvitation, joinMeeting };
