@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
     LayoutDashboard, Users, Monitor, Image as ImageIcon, 
     FileText, Settings, Bell, ShieldAlert, Activity, LogOut,
-    Video
+    Video, Key
 } from 'lucide-react';
 import { getUser, logout } from '../utils/auth';
 
@@ -16,6 +16,7 @@ const AdminLayout = ({ children, activeTab, setActiveTab, employees, notificatio
         { id: 'screenshots', icon: ImageIcon, label: 'Screenshots' },
         { id: 'logs', icon: FileText, label: 'Activity Logs' },
         { id: 'settings', icon: Settings, label: 'Settings' },
+        { id: 'change-password', icon: Key, label: 'Change Password' },
     ];
 
     return (

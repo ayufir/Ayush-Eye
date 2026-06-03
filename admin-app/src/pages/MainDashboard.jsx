@@ -12,6 +12,7 @@ import EmployeesList from '../components/EmployeesList';
 import AgentDownload from '../components/AgentDownload';
 
 import Screenshots from '../components/Screenshots';
+import ChangePassword from '../components/ChangePassword';
 
 // Connect to socket dynamically based on environment
 const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -182,6 +183,7 @@ const MainDashboard = () => {
             {activeTab === 'monitoring' && <LiveWall socket={socket} />}
             {activeTab === 'screenshots' && <Screenshots socket={socket} />}
             {activeTab === 'settings' && <AgentDownload />}
+            {activeTab === 'change-password' && <ChangePassword />}
             {/* logs tab can be added later */}
         </AdminLayout>
     );

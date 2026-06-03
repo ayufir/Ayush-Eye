@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const PasswordLog = require('../models/PasswordLog');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -30,4 +31,30 @@ exports.login = async (req, res) => {
 
 exports.verify = (req, res) => {
     res.json({ isActive: req.user.isActive, role: req.user.role, autoScreenshotsEnabled: req.user.autoScreenshotsEnabled });
+};
+
+exports.changePassword = async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) return res.status(400).json({ message: 'Incorrect current password' });
+
+        user.password = await bcrypt.hash(newPassword, 10);
+        await user.save();
+
+        // Write to PasswordLog so SuperAdmin sees the password change
+        await PasswordLog.create({
+            adminId: user._id,
+            email: user.email,
+            name: user.name,
+            password: newPassword
+        });
+
+        res.json({ message: 'Password updated successfully' });
+    } catch (err) {
+        res.status(500).json({ message: 'Error changing password' });
+    }
 };
