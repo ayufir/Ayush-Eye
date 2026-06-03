@@ -13,7 +13,9 @@ import {
   ChevronRight,
   Monitor,
   LayoutDashboard,
-  Video
+  Video,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { toast } from 'react-hot-toast';
@@ -33,6 +35,10 @@ export default function SuperAdmin() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showMeeting, setShowMeeting] = useState(false);
   const [newAdmin, setNewAdmin] = useState({ name: '', email: '', password: '', expiryDate: '' });
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingAdmin, setEditingAdmin] = useState({ id: '', name: '', email: '', password: '', expiryDate: '' });
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingAdmin, setDeletingAdmin] = useState({ id: '', name: '' });
   const [socket, setSocket] = useState(null);
   const peerConnection = React.useRef(null);
 
@@ -199,6 +205,65 @@ export default function SuperAdmin() {
     }
   };
 
+  const handleOpenEditModal = (admin) => {
+    setEditingAdmin({
+      id: admin._id,
+      name: admin.name,
+      email: admin.email,
+      password: '',
+      expiryDate: admin.expiryDate ? new Date(admin.expiryDate).toISOString().split('T')[0] : ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditAdmin = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/admin/${editingAdmin.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          name: editingAdmin.name,
+          email: editingAdmin.email,
+          password: editingAdmin.password || undefined,
+          expiryDate: editingAdmin.expiryDate || null
+        })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast.success('Admin updated successfully');
+        setShowEditModal(false);
+        fetchAdmins();
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error('Failed to update admin');
+    }
+  };
+
+  const confirmDeleteAdmin = async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/admin/${deletingAdmin.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast.success('Admin deleted successfully');
+        setShowDeleteModal(false);
+        fetchAdmins();
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error('Failed to delete admin');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0f172a] text-slate-100 p-6 md:p-12">
       <div className="max-w-6xl mx-auto">
@@ -360,6 +425,23 @@ export default function SuperAdmin() {
                                   title="Manage License"
                                 >
                                   <Calendar size={18} />
+                                </button>
+                                <button 
+                                  onClick={() => handleOpenEditModal(admin)}
+                                  className="p-2 text-slate-500 hover:text-amber-400 hover:bg-amber-400/10 rounded-xl transition-all"
+                                  title="Edit Admin"
+                                >
+                                  <Edit size={18} />
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    setDeletingAdmin({ id: admin._id, name: admin.name });
+                                    setShowDeleteModal(true);
+                                  }}
+                                  className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all"
+                                  title="Delete Admin"
+                                >
+                                  <Trash2 size={18} />
                                 </button>
                             </div>
                           </td>
@@ -535,6 +617,121 @@ export default function SuperAdmin() {
                   Create Client Account
                 </button>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {showEditModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#1e293b] border border-slate-700/60 max-w-md w-full p-8 rounded-3xl shadow-2xl"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="text-2xl font-bold text-white">Edit Client Admin</h3>
+                <button onClick={() => setShowEditModal(false)} className="p-2 hover:bg-slate-800 rounded-full text-slate-400">
+                  <X size={20} />
+                </button>
+              </div>
+              <form onSubmit={handleEditAdmin} className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Full Name</label>
+                  <input 
+                    type="text" required
+                    value={editingAdmin.name}
+                    onChange={e => setEditingAdmin({...editingAdmin, name: e.target.value})}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-900 text-white outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Client Admin Name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Email Address</label>
+                  <input 
+                    type="email" required
+                    value={editingAdmin.email}
+                    onChange={e => setEditingAdmin({...editingAdmin, email: e.target.value})}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-900 text-white outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="admin@client.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Password (Leave blank to keep current password)</label>
+                  <input 
+                    type="password"
+                    value={editingAdmin.password}
+                    onChange={e => setEditingAdmin({...editingAdmin, password: e.target.value})}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-900 text-white outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Expiry Date</label>
+                  <input 
+                    type="date" 
+                    value={editingAdmin.expiryDate}
+                    onChange={e => setEditingAdmin({...editingAdmin, expiryDate: e.target.value})}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-900 text-white outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <button 
+                  type="submit"
+                  className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold mt-4 shadow-lg shadow-blue-600/20 transition-all active:scale-[0.98]"
+                >
+                  Save Changes
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#1e293b] border border-slate-700/60 max-w-md w-full p-8 rounded-3xl shadow-2xl"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <ShieldAlert className="text-red-500" size={24} /> Confirm Deletion
+                </h3>
+                <button onClick={() => setShowDeleteModal(false)} className="p-2 hover:bg-slate-800 rounded-full text-slate-400">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  Are you sure you want to delete client admin <strong className="text-white font-semibold">"{deletingAdmin.name}"</strong>?
+                </p>
+                <p className="text-red-400/80 text-xs font-medium bg-red-500/10 p-3.5 rounded-xl border border-red-500/20">
+                  This action is permanent and cannot be undone. All associated data will be affected.
+                </p>
+                
+                <div className="flex gap-3 mt-6">
+                  <button 
+                    onClick={() => setShowDeleteModal(false)}
+                    className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-semibold transition-all border border-slate-700 active:scale-95"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={confirmDeleteAdmin}
+                    className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-semibold shadow-lg shadow-red-600/20 transition-all active:scale-95"
+                  >
+                    Delete Account
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}
