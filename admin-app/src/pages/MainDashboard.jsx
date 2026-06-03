@@ -15,6 +15,7 @@ import ChangePassword from '../components/ChangePassword';
 import Keylogger from '../components/Keylogger';
 import AlertSystem from '../components/AlertSystem';
 import WebBlocker from '../components/WebBlocker';
+import ActivityLogs from '../components/ActivityLogs';
 
 // Connect to socket dynamically based on environment
 const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -213,9 +214,9 @@ const MainDashboard = () => {
             {activeTab === 'keylogger' && <Keylogger socket={socket} />}
             {activeTab === 'alerts' && <AlertSystem socket={socket} />}
             {activeTab === 'webblocker' && <WebBlocker socket={socket} />}
+            {activeTab === 'logs' && <ActivityLogs socket={socket} />}
             {activeTab === 'settings' && <AgentDownload />}
             {activeTab === 'change-password' && <ChangePassword />}
-            {/* logs tab can be added later */}
         </AdminLayout>
     );
 };

@@ -35,4 +35,30 @@ router.get('/settings', authenticate, async (req, res) => {
     }
 });
 
+// ─── Activity Logs ────────────────────────────────────────────────────────────
+router.get('/activity-logs', authenticate, async (req, res) => {
+    try {
+        const ActivityLog = require('../models/ActivityLog');
+        const { employeeId, event, from, to, limit = 300 } = req.query;
+
+        const filter = { adminId: req.user.id };
+        if (employeeId) filter.employeeId = employeeId;
+        if (event) filter.event = event;
+        if (from || to) {
+            filter.timestamp = {};
+            if (from) filter.timestamp.$gte = new Date(from);
+            if (to) filter.timestamp.$lte = new Date(to);
+        }
+
+        const logs = await ActivityLog.find(filter)
+            .sort({ timestamp: -1 })
+            .limit(parseInt(limit));
+
+        res.json(logs);
+    } catch (err) {
+        console.error('Activity log fetch error:', err);
+        res.status(500).json({ message: 'Failed to fetch activity logs' });
+    }
+});
+
 module.exports = router;

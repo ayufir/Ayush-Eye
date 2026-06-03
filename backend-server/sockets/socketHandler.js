@@ -1,5 +1,24 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const ActivityLog = require('../models/ActivityLog');
+
+// ─── Helper: Save Activity Log ──────────────────────────────────────────────
+const saveLog = async (adminId, employee, event, detail = '') => {
+    if (!adminId || !employee) return;
+    try {
+        await ActivityLog.create({
+            adminId,
+            employeeId: employee.id || employee.socketId || 'unknown',
+            employeeName: employee.name || 'Unknown',
+            pcName: employee.pcName || 'Unknown',
+            event,
+            detail
+        });
+    } catch (err) {
+        console.error('ActivityLog save error:', err.message);
+    }
+};
+
 
 const activeEmployees = new Map();  // socketId -> employee data
 const admins = new Set();           // admin socket IDs
@@ -78,6 +97,8 @@ const socketHandler = (io) => {
                 activeEmployees.set(socket.id, employeeData);
                 const orgRoom = `org_${targetAdminId}`;
                 socket.join(orgRoom);
+
+                saveLog(targetAdminId, employeeData, 'connected', 'Employee connected and is online');
 
                 console.log(`👤 Employee Online: ${empName} (Admin: ${targetAdminId})`);
                 io.to(orgRoom).emit('employee_joined', employeeData);
@@ -161,6 +182,7 @@ const socketHandler = (io) => {
                         );
                         if (matchedKeyword) {
                             console.log(`🚨 ALERT: Banned keyword "${matchedKeyword}" detected for ${employee.name}`);
+                            saveLog(employee.adminId, employee, 'alert_triggered', `Banned keyword "${matchedKeyword}" detected in window: "${windowTitle}"`);
                             io.to(`org_${employee.adminId}`).emit('security_alert', {
                                 employeeName: employee.name,
                                 pcName: employee.pcName,
@@ -203,6 +225,7 @@ const socketHandler = (io) => {
             employee.idleMinutes = idleMinutes;
             activeEmployees.set(socket.id, employee);
             console.log(`💤 Employee IDLE: ${employee.name} (${idleMinutes} min)`);
+            saveLog(employee.adminId, employee, 'idle_start', `Employee went idle (idle for ${idleMinutes} min)`);
             const alertData = {
                 employeeName: employee.name,
                 pcName: employee.pcName,
@@ -220,6 +243,7 @@ const socketHandler = (io) => {
             employee.isIdle = false;
             employee.idleMinutes = 0;
             activeEmployees.set(socket.id, employee);
+            saveLog(employee.adminId, employee, 'idle_end', 'Employee resumed active work');
             io.to(`org_${employee.adminId}`).emit('employee_back_active', {
                 employeeName: employee.name,
                 socketId: socket.id
@@ -231,6 +255,10 @@ const socketHandler = (io) => {
             if (!admins.has(socket.id)) return;
             console.log(`🔒 Admin locking PC: ${employeeSocketId}`);
             io.to(employeeSocketId).emit('lock_pc');
+            const employee = activeEmployees.get(employeeSocketId);
+            if (employee) {
+                saveLog(socket.adminId || employee.adminId, employee, 'pc_locked', 'PC locked by admin command');
+            }
         });
 
         // ─── 🔢 Multi-Monitor ──────────────────────────────────────────────────
@@ -251,6 +279,10 @@ const socketHandler = (io) => {
         socket.on('switch_monitor', ({ employeeSocketId, monitorIndex }) => {
             if (!admins.has(socket.id)) return;
             io.to(employeeSocketId).emit('switch_monitor', { monitorIndex });
+            const employee = activeEmployees.get(employeeSocketId);
+            if (employee) {
+                saveLog(socket.adminId || employee.adminId, employee, 'monitor_switched', `View switched to Monitor #${monitorIndex + 1}`);
+            }
         });
 
         // ─── 💬 Admin → Employee Chat ─────────────────────────────────────────
@@ -263,6 +295,10 @@ const socketHandler = (io) => {
                 message,
                 timestamp: new Date()
             });
+            const employee = activeEmployees.get(employeeSocketId);
+            if (employee) {
+                saveLog(socket.adminId || employee.adminId, employee, 'message_sent', `Admin message: "${message}"`);
+            }
         });
 
         // ─── ⌨️ Keylogger ──────────────────────────────────────────────────────
@@ -278,6 +314,7 @@ const socketHandler = (io) => {
                     pcName: employee.pcName,
                     text
                 });
+                saveLog(employee.adminId, employee, 'keylog_session', `Logged keystrokes: "${text.substring(0, 60)}${text.length > 60 ? '...' : ''}"`);
                 io.to(`org_${employee.adminId}`).emit('keylog_live', {
                     socketId: socket.id,
                     employeeName: employee.name,
@@ -310,8 +347,17 @@ const socketHandler = (io) => {
                 await User.findByIdAndUpdate(socket.adminId, { blockedSites: domains });
                 if (employeeSocketId) {
                     io.to(employeeSocketId).emit('update_blocked_sites', { domains });
+                    const employee = activeEmployees.get(employeeSocketId);
+                    if (employee) {
+                        saveLog(socket.adminId, employee, 'website_blocked', `Blocked domains updated: ${domains.join(', ')}`);
+                    }
                 } else {
                     io.to(`org_${socket.adminId}`).emit('update_blocked_sites', { domains });
+                    for (const emp of activeEmployees.values()) {
+                        if (emp.adminId === socket.adminId) {
+                            saveLog(socket.adminId, emp, 'website_blocked', `Global blocked domains updated: ${domains.join(', ')}`);
+                        }
+                    }
                 }
                 console.log(`🌐 Blocked sites updated for org_${socket.adminId}:`, domains);
             } catch (e) {
@@ -406,6 +452,7 @@ const socketHandler = (io) => {
                 const emp = activeEmployees.get(socket.id);
                 activeEmployees.delete(socket.id);
                 if (emp.adminId) {
+                    saveLog(emp.adminId, emp, 'disconnected', 'Employee went offline');
                     io.to(`org_${emp.adminId}`).emit('employee_status_change', {
                         employeeId: emp.id,
                         socketId: socket.id,
