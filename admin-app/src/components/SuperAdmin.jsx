@@ -15,7 +15,10 @@ import {
   LayoutDashboard,
   Video,
   Edit,
-  Trash2
+  Trash2,
+  Key,
+  Copy,
+  Search
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { toast } from 'react-hot-toast';
@@ -39,6 +42,8 @@ export default function SuperAdmin() {
   const [editingAdmin, setEditingAdmin] = useState({ id: '', name: '', email: '', password: '', expiryDate: '' });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingAdmin, setDeletingAdmin] = useState({ id: '', name: '' });
+  const [passwordLogs, setPasswordLogs] = useState([]);
+  const [passwordSearchQuery, setPasswordSearchQuery] = useState('');
   const [socket, setSocket] = useState(null);
   const peerConnection = React.useRef(null);
 
@@ -61,8 +66,23 @@ export default function SuperAdmin() {
     }
   };
 
+  const fetchPasswordLogs = async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/admin/password-logs`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setPasswordLogs(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch password logs:', error);
+    }
+  };
+
   useEffect(() => {
     fetchAdmins();
+    fetchPasswordLogs();
     
     const newSocket = io(BACKEND_URL);
     setSocket(newSocket);
@@ -160,6 +180,7 @@ export default function SuperAdmin() {
         setShowAddModal(false);
         setNewAdmin({ name: '', email: '', password: '', expiryDate: '' });
         fetchAdmins();
+        fetchPasswordLogs();
       } else {
         toast.error(data.message);
       }
@@ -237,6 +258,7 @@ export default function SuperAdmin() {
         toast.success('Admin updated successfully');
         setShowEditModal(false);
         fetchAdmins();
+        fetchPasswordLogs();
       } else {
         toast.error(data.message);
       }
@@ -256,6 +278,7 @@ export default function SuperAdmin() {
         toast.success('Admin deleted successfully');
         setShowDeleteModal(false);
         fetchAdmins();
+        fetchPasswordLogs();
       } else {
         toast.error(data.message);
       }
@@ -447,6 +470,92 @@ export default function SuperAdmin() {
                           </td>
                         </tr>
                       ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Password History Registry Section */}
+              <div className="bg-[#1e293b] rounded-2xl border border-slate-700/50 shadow-2xl overflow-hidden mt-8">
+                <div className="p-6 border-b border-slate-700/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2.5">
+                      <Key className="text-amber-500" size={22} />
+                      Password Registry Log
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-1">Real-time log of credentials created or changed for Client Admins</p>
+                  </div>
+                  
+                  {/* Search Bar */}
+                  <div className="relative w-full md:w-80">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                    <input
+                      type="text"
+                      placeholder="Search by Admin Name or Email..."
+                      value={passwordSearchQuery}
+                      onChange={(e) => setPasswordSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto max-h-[350px] overflow-y-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-800/50 text-slate-400 text-xs uppercase tracking-wider sticky top-0 backdrop-blur-md z-10">
+                      <tr>
+                        <th className="px-6 py-4 font-semibold text-sm">Admin Name</th>
+                        <th className="px-6 py-4 font-semibold text-sm">Admin Email</th>
+                        <th className="px-6 py-4 font-semibold text-sm">Password (Plain-Text)</th>
+                        <th className="px-6 py-4 font-semibold text-sm">Date Changed</th>
+                        <th className="px-6 py-4 font-semibold text-sm text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700/50">
+                      {passwordLogs.filter(log => 
+                        log.name.toLowerCase().includes(passwordSearchQuery.toLowerCase()) || 
+                        log.email.toLowerCase().includes(passwordSearchQuery.toLowerCase())
+                      ).length === 0 ? (
+                        <tr>
+                          <td colSpan="5" className="px-6 py-12 text-center text-slate-500 text-sm">
+                            No credentials logs found.
+                          </td>
+                        </tr>
+                      ) : (
+                        passwordLogs.filter(log => 
+                          log.name.toLowerCase().includes(passwordSearchQuery.toLowerCase()) || 
+                          log.email.toLowerCase().includes(passwordSearchQuery.toLowerCase())
+                        ).map((log) => (
+                          <tr key={log._id} className="hover:bg-slate-800/20 transition-colors group">
+                            <td className="px-6 py-3.5">
+                              <div className="font-semibold text-slate-200 text-sm">{log.name}</div>
+                            </td>
+                            <td className="px-6 py-3.5 text-sm text-slate-400">
+                              {log.email}
+                            </td>
+                            <td className="px-6 py-3.5 font-mono text-sm">
+                              <span className="bg-slate-900/80 px-2.5 py-1 rounded-lg border border-slate-700/50 text-amber-400 font-bold select-all">
+                                {log.password}
+                              </span>
+                            </td>
+                            <td className="px-6 py-3.5 text-xs text-slate-500">
+                              {new Date(log.changedAt).toLocaleString()}
+                            </td>
+                            <td className="px-6 py-3.5 text-right">
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(log.password);
+                                  toast.success('Password copied to clipboard!');
+                                }}
+                                className="p-2 text-slate-500 hover:text-emerald-400 hover:bg-emerald-400/10 rounded-xl transition-all inline-flex items-center gap-1.5 text-xs font-semibold"
+                                title="Copy Password"
+                              >
+                                <Copy size={14} />
+                                Copy
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>

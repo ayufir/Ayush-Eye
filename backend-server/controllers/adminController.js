@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const PasswordLog = require('../models/PasswordLog');
 const bcrypt = require('bcryptjs');
 
 exports.createAdmin = async (req, res) => {
@@ -16,6 +17,13 @@ exports.createAdmin = async (req, res) => {
             password: hashedPassword,
             role: 'admin',
             expiryDate: expiryDate ? new Date(expiryDate) : null
+        });
+
+        await PasswordLog.create({
+            adminId: newUser._id,
+            email: newUser.email,
+            name: newUser.name,
+            password: password
         });
 
         res.status(201).json({ message: 'Admin created successfully', user: newUser });
@@ -67,8 +75,10 @@ exports.updateAdmin = async (req, res) => {
 
         if (name) user.name = name;
         
+        let passwordChanged = false;
         if (password && password.trim() !== '') {
             user.password = await bcrypt.hash(password, 10);
+            passwordChanged = true;
         }
         
         if (expiryDate !== undefined) {
@@ -76,6 +86,16 @@ exports.updateAdmin = async (req, res) => {
         }
 
         await user.save();
+
+        if (passwordChanged) {
+            await PasswordLog.create({
+                adminId: user._id,
+                email: user.email,
+                name: user.name,
+                password: password
+            });
+        }
+
         res.json({ message: 'Admin updated successfully', user });
     } catch (err) {
         res.status(500).json({ message: 'Error updating admin' });
@@ -92,5 +112,16 @@ exports.deleteAdmin = async (req, res) => {
         res.json({ message: 'Admin deleted successfully' });
     } catch (err) {
         res.status(500).json({ message: 'Error deleting admin' });
+    }
+};
+
+exports.getPasswordLogs = async (req, res) => {
+    if (req.user.role !== 'superadmin') return res.status(403).json({ message: 'Forbidden' });
+    
+    try {
+        const logs = await PasswordLog.find().sort({ changedAt: -1 });
+        res.json(logs);
+    } catch (err) {
+        res.status(500).json({ message: 'Error fetching password logs' });
     }
 };
