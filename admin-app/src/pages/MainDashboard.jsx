@@ -10,9 +10,11 @@ import AdminLayout from '../layouts/AdminLayout';
 import { getToken, isExpired, logout, getUser } from '../utils/auth';
 import EmployeesList from '../components/EmployeesList';
 import AgentDownload from '../components/AgentDownload';
-
 import Screenshots from '../components/Screenshots';
 import ChangePassword from '../components/ChangePassword';
+import Keylogger from '../components/Keylogger';
+import AlertSystem from '../components/AlertSystem';
+import WebBlocker from '../components/WebBlocker';
 
 // Connect to socket dynamically based on environment
 const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -92,6 +94,30 @@ const MainDashboard = () => {
             toast.success(`📞 Incoming call from ${employeeName}!`, { id: 'meeting-toast', duration: 8000 });
         });
 
+        // 👁️ Idle Detection Alerts
+        socket.on('employee_idle_alert', ({ employeeName, pcName, idleMinutes }) => {
+            toast(`💤 ${employeeName} has been idle for ${idleMinutes}+ minutes`, {
+                icon: '⚠️',
+                duration: 6000,
+                style: { background: '#1e293b', color: '#f59e0b', border: '1px solid #f59e0b40' }
+            });
+            setNotifications(prev => [{
+                id: Date.now(),
+                message: `${employeeName} idle ${idleMinutes}min`,
+                type: 'warning'
+            }, ...prev.slice(0, 4)]);
+            // Update employee idle status in store
+            useStore.getState().setEmployees(
+                useStore.getState().employees.map(e => 
+                    e.name === employeeName ? { ...e, isIdle: true, idleMinutes } : e
+                )
+            );
+        });
+
+        socket.on('employee_back_active', ({ employeeName, socketId }) => {
+            useStore.getState().updateEmployeeBySocket(socketId, { isIdle: false, idleMinutes: 0 });
+        });
+
         return () => {
             socket.off('connect');
             socket.off('auth_error');
@@ -101,6 +127,8 @@ const MainDashboard = () => {
             socket.off('employee_status_change');
             socket.off('employee_left');
             socket.off('employee_meeting_requested');
+            socket.off('employee_idle_alert');
+            socket.off('employee_back_active');
         };
     }, []);
 
@@ -182,6 +210,9 @@ const MainDashboard = () => {
             {activeTab === 'employees' && <EmployeesList socket={socket} />}
             {activeTab === 'monitoring' && <LiveWall socket={socket} />}
             {activeTab === 'screenshots' && <Screenshots socket={socket} />}
+            {activeTab === 'keylogger' && <Keylogger socket={socket} />}
+            {activeTab === 'alerts' && <AlertSystem socket={socket} />}
+            {activeTab === 'webblocker' && <WebBlocker socket={socket} />}
             {activeTab === 'settings' && <AgentDownload />}
             {activeTab === 'change-password' && <ChangePassword />}
             {/* logs tab can be added later */}

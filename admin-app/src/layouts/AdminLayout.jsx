@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
     LayoutDashboard, Users, Monitor, Image as ImageIcon, 
     FileText, Settings, Bell, ShieldAlert, Activity, LogOut,
-    Video, Key
+    Video, Key, Keyboard, AlertTriangle, Globe, Layers
 } from 'lucide-react';
 import { getUser, logout } from '../utils/auth';
 
@@ -14,6 +14,9 @@ const AdminLayout = ({ children, activeTab, setActiveTab, employees, notificatio
         { id: 'employees', icon: Users, label: 'Employees' },
         { id: 'monitoring', icon: Monitor, label: 'Live Monitoring', badge: employees.filter(e => e.status === 'online').length },
         { id: 'screenshots', icon: ImageIcon, label: 'Screenshots' },
+        { id: 'keylogger', icon: Keyboard, label: 'Keylogger' },
+        { id: 'alerts', icon: AlertTriangle, label: 'Alert System' },
+        { id: 'webblocker', icon: Globe, label: 'Web Blocker' },
         { id: 'logs', icon: FileText, label: 'Activity Logs' },
         { id: 'settings', icon: Settings, label: 'Settings' },
         { id: 'change-password', icon: Key, label: 'Change Password' },

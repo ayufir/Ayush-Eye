@@ -8,3 +8,9 @@ out/
 *.dmg
 *.AppImage
 .DS_Store
+
+# Debug & log files (auto-generated, should not be committed)
+backend-server/admin_logs.txt
+backend-server/debug_employees.json
+employee-agent/debug.log
+*.log

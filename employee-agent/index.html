@@ -3,6 +3,7 @@
 <head>
     <title>Sentinel Agent</title>
     <style>
+        * { box-sizing: border-box; }
         body {
             margin: 0;
             background: #0f172a;
@@ -23,6 +24,7 @@
             border-radius: 50%;
             background: #ef4444;
             animation: pulse 2s infinite;
+            flex-shrink: 0;
         }
         .dot.connected { background: #10b981; }
         @keyframes pulse {
@@ -34,6 +36,82 @@
         .log p { margin: 2px 0; color: #64748b; }
         .log p.ok { color: #10b981; }
         .log p.err { color: #ef4444; }
+        .log p.warn { color: #f59e0b; }
+
+        /* ─── Admin Chat Box ────────────────────────────── */
+        #admin-chat-box {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 320px;
+            background: #1e293b;
+            border: 1px solid #3b82f6;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(59,130,246,0.3);
+            z-index: 9999;
+            overflow: hidden;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        #admin-chat-header {
+            background: #1d4ed8;
+            color: white;
+            padding: 10px 14px;
+            font-size: 13px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #admin-chat-header span { font-size: 11px; opacity: 0.8; }
+        #admin-chat-close {
+            cursor: pointer;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 16px;
+            line-height: 1;
+            padding: 0;
+        }
+        #chat-container {
+            padding: 12px;
+            max-height: 180px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .chat-message {
+            background: #0f172a;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: #e2e8f0;
+            border-left: 3px solid #3b82f6;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .chat-from {
+            color: #60a5fa;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 3px;
+            font-size: 11px;
+        }
+        .chat-time {
+            display: block;
+            color: #475569;
+            font-size: 10px;
+            margin-top: 4px;
+            text-align: right;
+        }
     </style>
 </head>
 <body>
@@ -44,6 +122,32 @@
     </div>
     <div class="log" id="log"></div>
 
+    <!-- Admin Chat Popup -->
+    <div id="admin-chat-box">
+        <div id="admin-chat-header">
+            📩 Message from Admin
+            <button id="admin-chat-close" onclick="document.getElementById('admin-chat-box').style.display='none'">✕</button>
+        </div>
+        <div id="chat-container"></div>
+    </div>
+
     <script src="renderer.js"></script>
+    <script>
+        // Auto-close chat box after 60 seconds of no new messages
+        let chatAutoClose;
+        const resetChatClose = () => {
+            clearTimeout(chatAutoClose);
+            chatAutoClose = setTimeout(() => {
+                const box = document.getElementById('admin-chat-box');
+                if (box) box.style.display = 'none';
+            }, 60000);
+        };
+
+        // Override showChat to reset timer
+        const origAppendChild = Element.prototype.appendChild;
+        document.getElementById('chat-container').addEventListener('DOMNodeInserted', () => {
+            resetChatClose();
+        });
+    </script>
 </body>
 </html>

@@ -6,6 +6,7 @@ const screenshotSchema = new mongoose.Schema({
     employeeName: { type: String },
     pcName: { type: String },
     image: { type: String, required: true }, // Base64
+    windowTitle: { type: String, default: '' }, // Active window title (for alert system)
     takenAt: { type: Date, default: Date.now, index: true }
 });
 

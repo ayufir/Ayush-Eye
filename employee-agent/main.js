@@ -244,13 +244,64 @@ app.whenReady().then(async () => {
     });
 
     // In modern Electron, desktopCapturer must be called from main process
+    // Returns ALL monitors for multi-monitor support
     ipcMain.handle('get-desktop-sources', async () => {
         const sources = await desktopCapturer.getSources({
             types: ['screen'],
             thumbnailSize: { width: 150, height: 150 }
         });
-        // Return only serializable data
-        return sources.map(s => ({ id: s.id, name: s.name }));
+        // Return only serializable data — all screens for multi-monitor
+        return sources.map((s, index) => ({ id: s.id, name: s.name, index }));
+    });
+
+    // ─── PC Lock / Unlock ───────────────────────────────────────────────────────
+    ipcMain.on('lock-pc', () => {
+        console.log('🔒 Admin commanded: Lock PC');
+        const { exec } = require('child_process');
+        exec('rundll32.exe user32.dll,LockWorkStation', (err) => {
+            if (err) console.error('Lock error:', err.message);
+            else console.log('✅ PC Locked successfully');
+        });
+    });
+
+    // ─── Get Active Window Title (for Alert System) ─────────────────────────────
+    ipcMain.handle('get-active-window', async () => {
+        return new Promise((resolve) => {
+            const { exec } = require('child_process');
+            const cmd = `powershell -Command "(Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | Sort-Object CPU -Descending | Select-Object -First 1).MainWindowTitle"`;
+            exec(cmd, (err, stdout) => {
+                if (err) { resolve(''); return; }
+                resolve(stdout.trim());
+            });
+        });
+    });
+
+    // ─── Website Blocker via HOSTS file ────────────────────────────────────────
+    ipcMain.on('block-websites', (event, { domains }) => {
+        console.log('🌐 Blocking websites:', domains);
+        const { exec } = require('child_process');
+        const hostsPath = 'C:\\Windows\\System32\\drivers\\etc\\hosts';
+        
+        try {
+            let hostsContent = fs.readFileSync(hostsPath, 'utf8');
+            // Remove old sentinel blocks
+            hostsContent = hostsContent.replace(/# SENTINEL_START[\s\S]*?# SENTINEL_END\n?/g, '');
+            
+            if (domains && domains.length > 0) {
+                const blockLines = domains.map(d => `127.0.0.1 ${d}\n127.0.0.1 www.${d}`).join('\n');
+                hostsContent += `\n# SENTINEL_START\n${blockLines}\n# SENTINEL_END\n`;
+            }
+            
+            // Write hosts file requires admin — use PowerShell elevated
+            const tempPath = path.join(os.tmpdir(), 'sentinel_hosts.txt');
+            fs.writeFileSync(tempPath, hostsContent, 'utf8');
+            exec(`powershell -Command "Copy-Item '${tempPath}' '${hostsPath}' -Force"`, (err) => {
+                if (err) console.error('Hosts update error:', err.message);
+                else console.log('✅ Hosts file updated, websites blocked');
+            });
+        } catch (err) {
+            console.error('❌ Failed to modify hosts file:', err.message);
+        }
     });
 
     // ─── Persistent PowerShell Process for Instant Remote Control ─────────────────
@@ -384,6 +435,32 @@ app.whenReady().then(async () => {
 
     createWindow();
     createTray();
+
+    // ─── Admin Chat Notification Handler ─────────────────────────────────────
+    ipcMain.on('show-admin-notification', (event, { title, body }) => {
+        const { Notification } = require('electron');
+        if (Notification.isSupported()) {
+            new Notification({ title, body, urgency: 'normal' }).show();
+        }
+    });
+
+    // ─── Idle Detection: Poll Windows idle time via PowerShell ────────────────
+    setInterval(() => {
+        const { exec } = require('child_process');
+        // Get milliseconds since last user input using GetLastInputInfo
+        const psCmd = `powershell -NoProfile -Command "$TypeDef = '[DllImport(""user32.dll"")] public static extern bool GetLastInputInfo(ref LASTINPUTINFO plii); [StructLayout(LayoutKind.Sequential)] public struct LASTINPUTINFO { public uint cbSize; public uint dwTime; }'; Add-Type -MemberDefinition $TypeDef -Name U32 -Namespace W; $l = New-Object W.U32+LASTINPUTINFO; $l.cbSize = [System.Runtime.InteropServices.Marshal]::SizeOf($l); [W.U32]::GetLastInputInfo([ref]$l); [int]([Environment]::TickCount - $l.dwTime)"`;
+        exec(psCmd, (err, stdout) => {
+            if (!err) {
+                const idleMs = parseInt(stdout.trim());
+                // If user was active in last 30 seconds, notify renderer
+                if (!isNaN(idleMs) && idleMs < 30000) {
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('user-activity');
+                    }
+                }
+            }
+        });
+    }, 30000);
 });
 
 app.on('window-all-closed', () => {
