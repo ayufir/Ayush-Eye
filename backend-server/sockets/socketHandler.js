@@ -109,7 +109,7 @@ const socketHandler = (io) => {
                     const adminUser = await User.findById(targetAdminId);
                     if (adminUser) {
                         socket.emit('auto_screenshot_setting', { enabled: adminUser.autoScreenshotsEnabled !== false });
-                        if (adminUser.blockedSites && adminUser.blockedSites.length > 0) {
+                        if (adminUser.blockedSites) {
                             socket.emit('update_blocked_sites', { domains: adminUser.blockedSites });
                         }
                         socket.emit('keylog_setting', { enabled: adminUser.keylogEnabled === true });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Globe, Plus, X, Shield, Users, ShieldAlert } from 'lucide-react';
 import useStore from '../store';
 import { toast } from 'react-hot-toast';
@@ -13,6 +13,29 @@ const WebBlocker = ({ socket }) => {
     const [blockedSites, setBlockedSites] = useState([]);
     const [newSite, setNewSite] = useState('');
     const [targetEmployee, setTargetEmployee] = useState('all');
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                  ? 'http://localhost:5000'
+                  : 'https://ayush-eye-1.onrender.com';
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${BACKEND_URL}/api/admin/settings`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.blockedSites) {
+                        setBlockedSites(data.blockedSites);
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to fetch settings:', err);
+            }
+        };
+        fetchSettings();
+    }, []);
 
     const onlineEmployees = employees.filter(e => e.status === 'online');
 

